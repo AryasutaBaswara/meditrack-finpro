@@ -1,0 +1,216 @@
+name: meditrack
+
+services:
+  # ────────────────────────────────────────────────────────────
+  # FASTAPI — Core Backend Service
+  # ────────────────────────────────────────────────────────────
+  fastapi:
+    build:
+      context: ../../services/fastapi
+      dockerfile: Dockerfile
+    container_name: meditrack-fastapi
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file:
+      - ../../.env
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgresql+asyncpg://meditrack:meditrack@postgres:5432/meditrack
+      REDIS_URL: redis://redis:6379/0
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      KEYCLOAK_URL: http://keycloak:8080
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/realms/meditrack/protocol/openid-connect/certs
+    volumes:
+      - ../../services/fastapi:/app   # hot reload in dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    networks:
+      - meditrack-network
+    labels:
+      - "traefik.enable=false"        # NGINX handles routing, not Traefik
+
+  # ────────────────────────────────────────────────────────────
+  # NGINX — Reverse Proxy
+  # Routes: /api/* → fastapi, /auth/* → keycloak
+  # ────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: meditrack-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - fastapi
+      - keycloak
+    networks:
+      - meditrack-network
+
+  # ────────────────────────────────────────────────────────────
+  # KEYCLOAK — Auth Server
+  # Admin console: http://localhost:8080
+  # Admin credentials: admin / admin (dev only)
+  # ────────────────────────────────────────────────────────────
+  keycloak:
+    image: quay.io/keycloak/keycloak:23.0
+    container_name: meditrack-keycloak
+    restart: unless-stopped
+    command: start-dev --import-realm
+    ports:
+      - "8080:8080"
+    environment:
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
+      KC_DB_USERNAME: meditrack
+      KC_DB_PASSWORD: meditrack
+      KC_HOSTNAME_STRICT: false
+      KC_HTTP_ENABLED: true
+    volumes:
+      - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\n\r\n' >&3 && cat <&3 | grep -q '200 OK'"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s        # Keycloak takes time to start
+    networks:
+      - meditrack-network
+
+  # ────────────────────────────────────────────────────────────
+  # POSTGRESQL — Local Dev + Test Database
+  # NOT Supabase — this is for local dev & CI test isolation
+  # Supabase cloud is used for staging/prod
+  # ────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: meditrack-postgres
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: meditrack
+      POSTGRES_PASSWORD: meditrack
+      POSTGRES_MULTIPLE_DATABASES: meditrack,keycloak,meditrack_test
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init-multiple-db.sh:/docker-entrypoint-initdb.d/init-multiple-db.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U meditrack -d meditrack"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - meditrack-network
+
+  # ────────────────────────────────────────────────────────────
+  # REDIS — Cache + Rate Limiting
+  # ────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: meditrack-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - meditrack-network
+
+  # ────────────────────────────────────────────────────────────
+  # ELASTICSEARCH — Drug Catalog Search
+  # Single node for local dev
+  # UI (via browser): http://localhost:9200
+  # ────────────────────────────────────────────────────────────
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
+    container_name: meditrack-elasticsearch
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false        # disabled for local dev simplicity
+      - xpack.security.http.ssl.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m     # limit memory for local dev
+      - cluster.name=meditrack-cluster
+      - node.name=meditrack-node-1
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -q '\"status\":\"green\"\\|\"status\":\"yellow\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - meditrack-network
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  # ────────────────────────────────────────────────────────────
+  # KIBANA — Elasticsearch UI (dev tool only)
+  # Access: http://localhost:5601
+  # Optional — comment out if not needed
+  # ────────────────────────────────────────────────────────────
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.12.0
+    container_name: meditrack-kibana
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      xpack.security.enabled: false
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - meditrack-network
+    profiles:
+      - tools             # only starts with: docker compose --profile tools up
+
+# ────────────────────────────────────────────────────────────
+# VOLUMES
+# ────────────────────────────────────────────────────────────
+volumes:
+  postgres-data:
+    name: meditrack-postgres-data
+  redis-data:
+    name: meditrack-redis-data
+  elasticsearch-data:
+    name: meditrack-elasticsearch-data
+
+# ────────────────────────────────────────────────────────────
+# NETWORKS
+# ────────────────────────────────────────────────────────────
+networks:
+  meditrack-network:
+    name: meditrack-network
+    driver: bridge
