@@ -1,0 +1,128 @@
+# ─────────────────────────────────────────────
+# MediTrack — .gitignore
+# ─────────────────────────────────────────────
+
+# ── Environment & Secrets ─────────────────────
+.env
+.env.local
+.env.*.local
+**/.env
+!.env.example
+!infra/docker/.env.docker.example
+*.pem
+*.key
+*.crt
+secrets/
+
+# ── Python ────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# ── Virtual Environments ──────────────────────
+.venv/
+venv/
+ENV/
+env/
+.env/
+
+# ── pytest ────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.tox/
+nosetests.xml
+pytest.ini
+*.coveragerc
+
+# ── Ruff / Black / Mypy ───────────────────────
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# ── Alembic ───────────────────────────────────
+# Keep migrations tracked, ignore pycache inside
+infra/supabase/migrations/__pycache__/
+
+# ── Node / Playwright / Automation ───────────
+node_modules/
+automation/node_modules/
+automation/test-results/
+automation/playwright-report/
+automation/.cache/
+*.tsbuildinfo
+
+# ── Docker ────────────────────────────────────
+# Don't ignore compose files — they're infra config
+# But ignore override if it contains local secrets
+infra/docker/docker-compose.override.yml
+
+# ── Kubernetes ────────────────────────────────
+# Keep all manifests tracked
+# Ignore generated kubeconfigs
+kubeconfig
+*.kubeconfig
+infra/k8s/secrets/
+
+# ── IDEs ──────────────────────────────────────
+.vscode/settings.json
+.vscode/launch.json
+!.vscode/extensions.json        # keep recommended extensions
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Logs ──────────────────────────────────────
+*.log
+logs/
+*.pid
+
+# ── Build Artifacts ───────────────────────────
+*.pyc
+*.pyo
+dist/
+build/
+target/
+
+# ── PDF / Generated Reports ───────────────────
+# Don't commit generated PDFs
+services/fastapi/generated_reports/
+*.pdf
+
+# ── Supabase CLI ──────────────────────────────
+.supabase/
+
+# ── OS ────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/

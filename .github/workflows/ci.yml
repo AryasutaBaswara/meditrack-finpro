@@ -1,0 +1,238 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+      - "feat/**"
+      - "fix/**"
+      - "chore/**"
+  pull_request:
+    branches:
+      - main
+      - develop
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}/meditrack-fastapi
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # JOB 1 — Lint & Format Check
+  # Runs on every push/PR. Fast feedback — fails in < 1 minute.
+  # ──────────────────────────────────────────────────────────────
+  lint:
+    name: Lint & Format
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/fastapi
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: services/fastapi/requirements.txt
+
+      - name: Install lint dependencies
+        run: pip install ruff black
+
+      - name: Run Ruff linter
+        run: ruff check app/ tests/
+
+      - name: Run Black format check
+        run: black --check app/ tests/
+
+  # ──────────────────────────────────────────────────────────────
+  # JOB 2 — Unit & Integration Tests
+  # Depends on lint passing. Runs pytest with coverage report.
+  # ──────────────────────────────────────────────────────────────
+  test:
+    name: Tests (Unit + Integration)
+    runs-on: ubuntu-latest
+    needs: lint
+    defaults:
+      run:
+        working-directory: services/fastapi
+
+    # Spin up test dependencies as service containers
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: meditrack_test
+          POSTGRES_PASSWORD: meditrack_test
+          POSTGRES_DB: meditrack_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Test environment — uses service containers above
+      APP_ENV: test
+      APP_DEBUG: false
+      DATABASE_URL: postgresql+asyncpg://meditrack_test:meditrack_test@localhost:5432/meditrack_test
+      REDIS_URL: redis://localhost:6379/0
+      # Dummy values for services not needed in unit/integration tests
+      KEYCLOAK_URL: http://localhost:8080
+      KEYCLOAK_REALM: meditrack
+      KEYCLOAK_CLIENT_ID: meditrack-backend
+      KEYCLOAK_CLIENT_SECRET: test-secret
+      KEYCLOAK_JWKS_URL: http://localhost:8080/realms/meditrack/protocol/openid-connect/certs
+      SUPABASE_URL: http://localhost:54321
+      SUPABASE_ANON_KEY: test-anon-key
+      SUPABASE_SERVICE_ROLE_KEY: test-service-role-key
+      ELASTICSEARCH_URL: http://localhost:9200
+      OPENAI_API_KEY: sk-test-key
+      APP_SECRET_KEY: test-secret-key-for-ci
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: "pip"
+          cache-dependency-path: services/fastapi/requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run unit tests
+        run: |
+          pytest tests/unit \
+            -v \
+            --tb=short \
+            --junitxml=reports/unit-results.xml
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration \
+            -v \
+            --tb=short \
+            --junitxml=reports/integration-results.xml
+
+      - name: Generate coverage report
+        run: |
+          pytest tests/ \
+            --cov=app \
+            --cov-report=xml:reports/coverage.xml \
+            --cov-report=term-missing \
+            --cov-fail-under=70
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: services/fastapi/reports/
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────
+  # JOB 3 — Docker Build Check
+  # Verifies the Docker image builds successfully.
+  # Does NOT push — push only happens on merge to main/develop.
+  # ──────────────────────────────────────────────────────────────
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    needs: lint
+    # Run in parallel with test — both depend on lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image (no push)
+        uses: docker/build-push-action@v5
+        with:
+          context: services/fastapi
+          file: services/fastapi/Dockerfile
+          push: false
+          tags: ${{ env.IMAGE_NAME }}:ci-check
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ──────────────────────────────────────────────────────────────
+  # JOB 4 — Push to GHCR
+  # Only runs on push to main or develop (not on PRs).
+  # Requires both test and docker-build to pass.
+  # ──────────────────────────────────────────────────────────────
+  push-image:
+    name: Push to GHCR
+    runs-on: ubuntu-latest
+    needs: [test, docker-build]
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: services/fastapi
+          file: services/fastapi/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image pushed summary
+        run: |
+          echo "### ✅ Image pushed to GHCR" >> $GITHUB_STEP_SUMMARY
+          echo "Tags: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
