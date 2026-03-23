@@ -24,7 +24,7 @@ concurrency:
 env:
   PYTHON_VERSION: "3.12"
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/meditrack-fastapi
+  IMAGE_NAME: ${{ github.repository_owner }}/meditrack-fastapi
 
 jobs:
   # ──────────────────────────────────────────────────────────────
@@ -176,6 +176,10 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Set lowercase image name
+        run: |
+          echo "IMAGE_NAME_LOWER=$(echo ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Build Docker image (no push)
         uses: docker/build-push-action@v5
