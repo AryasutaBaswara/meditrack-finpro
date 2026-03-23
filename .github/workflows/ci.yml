@@ -5,13 +5,17 @@ on:
     branches:
       - main
       - develop
+      - staging
       - "feat/**"
       - "fix/**"
       - "chore/**"
+    tags:
+      - "v*"
   pull_request:
     branches:
       - main
       - develop
+      - staging
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,7 +24,7 @@ concurrency:
 env:
   PYTHON_VERSION: "3.12"
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository }}/meditrack-fastapi
+  IMAGE_NAME: ${{ github.repository_owner }}/meditrack-fastapi
 
 jobs:
   # ──────────────────────────────────────────────────────────────
@@ -158,7 +162,7 @@ jobs:
   # ──────────────────────────────────────────────────────────────
   # JOB 3 — Docker Build Check
   # Verifies the Docker image builds successfully.
-  # Does NOT push — push only happens on merge to main/develop.
+  # Does NOT push — publish is handled by environment/release rules below.
   # ──────────────────────────────────────────────────────────────
   docker-build:
     name: Docker Build Check
@@ -179,60 +183,71 @@ jobs:
           context: services/fastapi
           file: services/fastapi/Dockerfile
           push: false
-          tags: ${{ env.IMAGE_NAME }}:ci-check
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-check
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   # ──────────────────────────────────────────────────────────────
   # JOB 4 — Push to GHCR
-  # Only runs on push to main or develop (not on PRs).
-  # Requires both test and docker-build to pass.
+  # Environment tag strategy:
+  # - develop  -> dev, dev-<sha>
+  # - staging  -> staging, staging-<sha>
+  # - v* tags  -> semantic version tags + latest
   # ──────────────────────────────────────────────────────────────
-  push-image:
-    name: Push to GHCR
-    runs-on: ubuntu-latest
-    needs: [test, docker-build]
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
-    permissions:
-      contents: read
-      packages: write
+  # push-image:
+  #   name: Push to GHCR
+  #   runs-on: ubuntu-latest
+  #   needs: [test, docker-build]
+  #   if: github.event_name == 'push' && (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/staging' || startsWith(github.ref, 'refs/tags/v'))
+  #   permissions:
+  #     contents: read
+  #     packages: write
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+  #     - name: Set up Docker Buildx
+  #       uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GHCR
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ env.REGISTRY }}
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+  #     - name: Log in to GHCR
+  #       uses: docker/login-action@v3
+  #       with:
+  #         registry: ${{ env.REGISTRY }}
+  #         username: ${{ github.actor }}
+  #         password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=sha,prefix={{branch}}-
-            type=raw,value=latest,enable={{is_default_branch}}
+  #     - name: Extract Docker metadata
+  #       id: meta
+  #       uses: docker/metadata-action@v5
+  #       with:
+  #         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+  #         flavor: |
+  #           latest=false
+  #         tags: |
+  #           type=raw,value=dev,enable=${{ github.ref == 'refs/heads/develop' }}
+  #           type=sha,prefix=dev-,enable=${{ github.ref == 'refs/heads/develop' }}
+  #           type=raw,value=staging,enable=${{ github.ref == 'refs/heads/staging' }}
+  #           type=sha,prefix=staging-,enable=${{ github.ref == 'refs/heads/staging' }}
+  #           type=ref,event=tag
+  #           type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+  #           type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+  #           type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') && !startsWith(github.ref_name, 'v0.') }}
+  #           type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: services/fastapi
-          file: services/fastapi/Dockerfile
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+  #     - name: Build and push Docker image
+  #       uses: docker/build-push-action@v5
+  #       with:
+  #         context: services/fastapi
+  #         file: services/fastapi/Dockerfile
+  #         push: true
+  #         tags: ${{ steps.meta.outputs.tags }}
+  #         labels: ${{ steps.meta.outputs.labels }}
+  #         cache-from: type=gha
+  #         cache-to: type=gha,mode=max
 
-      - name: Image pushed summary
-        run: |
-          echo "### ✅ Image pushed to GHCR" >> $GITHUB_STEP_SUMMARY
-          echo "Tags: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+  #     - name: Image pushed summary
+  #       run: |
+  #         echo "### ✅ Image pushed to GHCR" >> $GITHUB_STEP_SUMMARY
+  #         echo "Source ref: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+  #         echo "Tags: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
