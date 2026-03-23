@@ -24,7 +24,7 @@ concurrency:
 env:
   PYTHON_VERSION: "3.12"
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/meditrack-fastapi
+  IMAGE_NAME: ${{ github.repository }}/meditrack-fastapi
 
 jobs:
   # ──────────────────────────────────────────────────────────────
