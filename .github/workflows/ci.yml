@@ -187,7 +187,7 @@ jobs:
           context: services/fastapi
           file: services/fastapi/Dockerfile
           push: false
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:ci-check
+          tags: ${{ env.IMAGE_NAME_LOWER }}:ci-check
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
