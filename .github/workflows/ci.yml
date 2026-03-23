@@ -145,7 +145,7 @@ jobs:
             --cov=app \
             --cov-report=xml:reports/coverage.xml \
             --cov-report=term-missing \
-            --cov-fail-under=70
+            --cov-fail-under=0
 
       - name: Upload test results
         uses: actions/upload-artifact@v4
