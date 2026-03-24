@@ -47,7 +47,7 @@ class Settings(BaseSettings):
 
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
-    alembic_database_url: str
+    alembic_database_url: str | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
