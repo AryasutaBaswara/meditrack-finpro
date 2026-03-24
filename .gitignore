@@ -56,6 +56,7 @@ pytest.ini
 
 # ── Ruff / Black / Mypy ───────────────────────
 .ruff_cache/
+.pre-commit-cache/
 .mypy_cache/
 .dmypy.json
 dmypy.json
