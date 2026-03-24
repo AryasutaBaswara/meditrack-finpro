@@ -37,7 +37,9 @@ class StorageFile(Base, TimestampMixin):
     file_size: Mapped[int | None] = mapped_column(nullable=True)
     mime_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
-    prescription: Mapped[Prescription | None] = relationship("Prescription", lazy="selectin")
+    prescription: Mapped[Prescription | None] = relationship(
+        "Prescription", lazy="selectin"
+    )
     uploader: Mapped[User] = relationship("User", lazy="selectin")
 
     def __repr__(self) -> str:

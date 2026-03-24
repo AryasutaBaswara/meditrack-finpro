@@ -39,7 +39,9 @@ class Drug(Base, TimestampMixin, SoftDeleteMixin):
 class DrugInteraction(Base, TimestampMixin):
     __tablename__ = "drug_interactions"
     __table_args__ = (
-        UniqueConstraint("drug_a_id", "drug_b_id", name="uq_drug_interactions_drug_a_id_drug_b_id"),
+        UniqueConstraint(
+            "drug_a_id", "drug_b_id", name="uq_drug_interactions_drug_a_id_drug_b_id"
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

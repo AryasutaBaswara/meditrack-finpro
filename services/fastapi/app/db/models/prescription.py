@@ -49,7 +49,9 @@ class Prescription(Base, TimestampMixin, SoftDeleteMixin):
         nullable=False,
     )
     notes: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    interaction_check_result: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    interaction_check_result: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON, nullable=True
+    )
 
     doctor: Mapped[Doctor] = relationship("Doctor", lazy="selectin")
     patient: Mapped[Patient] = relationship("Patient", lazy="selectin")

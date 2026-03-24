@@ -4,8 +4,8 @@
 # ─────────────────────────────────────────────────────────────
 
 .PHONY: help dev down restart logs build test test-unit test-integration \
-        test-e2e lint format migrate seed k8s-up k8s-down k8s-status \
-        k8s-logs clean setup
+	test-e2e lint format hooks migrate seed k8s-up k8s-down k8s-status \
+	k8s-logs clean setup
 
 # ── Default ───────────────────────────────────────────────────
 help:
@@ -36,6 +36,7 @@ help:
 	@echo "  Code Quality:"
 	@echo "    make lint           Run ruff linter"
 	@echo "    make format         Run black formatter"
+	@echo "    make hooks          Install git hooks for auto-format on commit"
 	@echo "    make check          Run lint + format check (CI mode)"
 	@echo ""
 	@echo "  Kubernetes (Staging/Prod):"
@@ -55,6 +56,9 @@ setup:
 	@cp -n .env.example .env || echo "  .env already exists, skipping."
 	@echo "→ Installing FastAPI dependencies..."
 	@cd services/fastapi && pip install -r requirements.txt
+	@echo "→ Installing pre-commit and git hooks..."
+	@pip install pre-commit
+	@pre-commit install
 	@echo "→ Installing Playwright dependencies..."
 	@cd automation && npm install
 	@npx playwright install
@@ -134,6 +138,12 @@ lint:
 format:
 	@echo "→ Running black..."
 	cd services/fastapi && black app/ tests/
+
+hooks:
+	@echo "→ Installing pre-commit and git hooks..."
+	@pip install pre-commit
+	@pre-commit install
+	@echo "✅ Git hooks installed. Formatting will run before each commit."
 
 check:
 	@echo "→ Running CI checks (lint + format check)..."

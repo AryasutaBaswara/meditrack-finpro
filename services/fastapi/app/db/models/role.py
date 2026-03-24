@@ -36,7 +36,9 @@ class Role(Base, TimestampMixin):
 
 class UserRole(Base, TimestampMixin):
     __tablename__ = "user_roles"
-    __table_args__ = (UniqueConstraint("user_id", "role_id", name="uq_user_roles_user_id_role_id"),)
+    __table_args__ = (
+        UniqueConstraint("user_id", "role_id", name="uq_user_roles_user_id_role_id"),
+    )
 
     id: Mapped[UUID] = mapped_column(
         SqlAlchemyUUID,
