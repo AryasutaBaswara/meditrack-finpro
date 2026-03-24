@@ -14,6 +14,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedException
+from app.services.cache_service import CacheService
+from app.services.drug_service import DrugService
+from app.services.search_service import SearchService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -69,6 +72,24 @@ def get_es() -> AsyncElasticsearch:
     if _es_client is None:
         raise RuntimeError("Elasticsearch client has not been initialized")
     return _es_client
+
+
+def get_cache_service(redis_client: redis.Redis = Depends(get_redis)) -> CacheService:
+    return CacheService(redis=redis_client)
+
+
+def get_search_service(
+    es_client: AsyncElasticsearch = Depends(get_es),
+) -> SearchService:
+    return SearchService(es=es_client)
+
+
+def get_drug_service(
+    db: AsyncSession = Depends(get_db),
+    cache: CacheService = Depends(get_cache_service),
+    search: SearchService = Depends(get_search_service),
+) -> DrugService:
+    return DrugService(db=db, cache=cache, search=search)
 
 
 async def _fetch_jwks() -> dict[str, Any]:
@@ -142,6 +163,8 @@ def require_roles(*roles: str) -> Callable[..., TokenData]:
     async def role_checker(
         current_user: TokenData = Depends(get_current_active_user),
     ) -> TokenData:
+        if not roles:
+            return current_user
         if not any(role in current_user.roles for role in roles):
             raise UnauthorizedException("Insufficient permissions")
         return current_user
