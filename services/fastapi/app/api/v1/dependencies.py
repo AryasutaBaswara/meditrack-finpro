@@ -15,7 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedException
 from app.services.cache_service import CacheService
+from app.services.doctor_service import DoctorService
 from app.services.drug_service import DrugService
+from app.services.patient_service import PatientService
 from app.services.search_service import SearchService
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -90,6 +92,18 @@ def get_drug_service(
     search: SearchService = Depends(get_search_service),
 ) -> DrugService:
     return DrugService(db=db, cache=cache, search=search)
+
+
+def get_patient_service(
+    db: AsyncSession = Depends(get_db),
+) -> PatientService:
+    return PatientService(db=db)
+
+
+def get_doctor_service(
+    db: AsyncSession = Depends(get_db),
+) -> DoctorService:
+    return DoctorService(db=db)
 
 
 async def _fetch_jwks() -> dict[str, Any]:

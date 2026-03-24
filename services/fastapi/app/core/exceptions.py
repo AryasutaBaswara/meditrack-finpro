@@ -42,6 +42,15 @@ class PatientNotFoundException(MediTrackException):
         )
 
 
+class DoctorNotFoundException(MediTrackException):
+    def __init__(self, doctor_id: int) -> None:
+        super().__init__(
+            code="DOCTOR_NOT_FOUND",
+            message=f"Doctor with id {doctor_id} does not exist",
+            status_code=404,
+        )
+
+
 class InteractionDetectedException(MediTrackException):
     def __init__(self, details: str) -> None:
         super().__init__(
