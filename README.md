@@ -11,6 +11,7 @@
 MediTrack is a backend-focused clinical drug inventory and prescription management system. It digitizes the full prescription lifecycle — from doctor-issued prescriptions through pharmacist dispensation — while enforcing strict data access control and providing AI-assisted drug safety checks.
 
 **Key capabilities:**
+
 - End-to-end prescription workflow with status tracking
 - AI-powered drug interaction checker (OpenAI GPT-4o)
 - Automated inventory management via database triggers
@@ -22,21 +23,21 @@ MediTrack is a backend-focused clinical drug inventory and prescription manageme
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Backend API | FastAPI (Python 3.12) |
-| Auth | Keycloak |
-| Database | Supabase PostgreSQL |
-| ORM + Migrations | SQLAlchemy Async + Alembic |
-| Cache + Rate Limit | Redis |
-| Search | Elasticsearch |
-| AI | OpenAI GPT-4o |
-| PDF | reportlab |
-| Storage | Supabase Storage + Edge Functions |
-| Reverse Proxy | NGINX |
-| Container | Docker Compose (local) / Minikube (staging/prod) |
-| CI/CD | GitHub Actions |
-| E2E Automation | Playwright (TypeScript) |
+| Layer              | Technology                                       |
+| ------------------ | ------------------------------------------------ |
+| Backend API        | FastAPI (Python 3.12)                            |
+| Auth               | Keycloak                                         |
+| Database           | Supabase PostgreSQL                              |
+| ORM + Migrations   | SQLAlchemy Async + Alembic                       |
+| Cache + Rate Limit | Redis                                            |
+| Search             | Elasticsearch                                    |
+| AI                 | OpenAI GPT-4o                                    |
+| PDF                | reportlab                                        |
+| Storage            | Supabase Storage + Edge Functions                |
+| Reverse Proxy      | NGINX                                            |
+| Container          | Docker Compose (local) / Minikube (staging/prod) |
+| CI/CD              | GitHub Actions                                   |
+| E2E Automation     | Playwright (TypeScript)                          |
 
 ---
 
@@ -93,6 +94,8 @@ make migrate
 make seed
 ```
 
+`make setup` now installs a local `pre-commit` hook. On every commit, the hook runs `ruff --fix` and `black` so formatting issues are corrected before they reach CI.
+
 API docs available at: `http://localhost:8000/docs`
 
 ---
@@ -104,10 +107,21 @@ make help        # Show all available commands
 make dev         # Start local development environment
 make test        # Run all tests
 make lint        # Run linter
+make hooks       # Install git hooks for auto-format on commit
 make migrate     # Run database migrations
 make seed        # Seed database with sample data
 make k8s-up      # Deploy to Minikube
 ```
+
+## Code Quality
+
+```bash
+make format      # Format Python code manually
+make hooks       # Reinstall local git hooks if needed
+make check       # Run the same lint and format checks as CI
+```
+
+If a commit changes Python files, the git hook formats them automatically before the commit completes. If the hook rewrites files, review the updated files and run `git commit` again.
 
 ---
 
@@ -126,6 +140,7 @@ See `.env.example` for all required variables with descriptions.
 ## API Documentation
 
 Once running, interactive API docs are available at:
+
 - Swagger UI: `http://localhost:8000/docs`
 - ReDoc: `http://localhost:8000/redoc`
 
@@ -146,6 +161,7 @@ make test-cov     # Tests with coverage report
 ## Architecture
 
 See [`docs/MediTrack_Blueprint.docx`](docs/MediTrack_Blueprint.docx) for the full architecture blueprint including:
+
 - System architecture diagram
 - Database schema (14 tables)
 - RBAC roles & permissions
@@ -157,12 +173,12 @@ See [`docs/MediTrack_Blueprint.docx`](docs/MediTrack_Blueprint.docx) for the ful
 
 ## RBAC Roles
 
-| Role | Permissions |
-|---|---|
-| `admin` | Full system access |
-| `doctor` | Create prescriptions, view patients, trigger AI check |
-| `pharmacist` | Process dispensations, manage drug stock |
-| `patient` | View own prescriptions only (RLS enforced) |
+| Role         | Permissions                                           |
+| ------------ | ----------------------------------------------------- |
+| `admin`      | Full system access                                    |
+| `doctor`     | Create prescriptions, view patients, trigger AI check |
+| `pharmacist` | Process dispensations, manage drug stock              |
+| `patient`    | View own prescriptions only (RLS enforced)            |
 
 ---
 
