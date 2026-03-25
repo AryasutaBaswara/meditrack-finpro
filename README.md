@@ -69,6 +69,7 @@ meditrack/
 ### Prerequisites
 
 - Docker & Docker Compose
+- Supabase CLI with a running local stack
 - Python 3.12+
 - Node.js 18+
 - `make`
@@ -83,18 +84,27 @@ cd meditrack
 # 2. First-time setup
 make setup
 
-# 3. Fill in your credentials
+# 3. Start Supabase local first
+# This repository expects Supabase local to run outside Docker Compose.
+
+# 4. Fill in your credentials
 vim .env
 
-# 4. Start all services
+# 5. Start the remaining local services
 make dev
 
-# 5. Run migrations & seed
+# 6. Apply app schema
 make migrate
+
+# 7. Optionally reset local DB and run SQL seed
 make seed
 ```
 
 `make setup` now installs a local `pre-commit` hook. On every commit, the hook runs `ruff --fix` and `black` so formatting issues are corrected before they reach CI.
+
+`make dev` no longer starts a standalone Postgres container. FastAPI connects to Supabase local using the connection values in `.env`, while the compose stack overrides those values inside containers with `host.docker.internal`.
+
+Important: the application schema is still managed by Alembic in `services/fastapi/alembic`, not by Supabase SQL migrations. If you reset Supabase local, run `make migrate` again, or use `make seed`, which now performs `supabase db reset` and then reapplies Alembic automatically.
 
 API docs available at: `http://localhost:8000/docs`
 
@@ -109,7 +119,7 @@ make test        # Run all tests
 make lint        # Run linter
 make hooks       # Install git hooks for auto-format on commit
 make migrate     # Run database migrations
-make seed        # Seed database with sample data
+make seed        # Reset local DB, run Supabase SQL seed, then re-apply Alembic schema
 make k8s-up      # Deploy to Minikube
 ```
 

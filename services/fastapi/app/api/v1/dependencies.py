@@ -7,6 +7,7 @@ import httpx
 import redis.asyncio as redis
 from elasticsearch import AsyncElasticsearch
 from fastapi import Depends
+from openai import AsyncOpenAI
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from pydantic import BaseModel
@@ -14,10 +15,12 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedException
+from app.services.ai_service import AIService
 from app.services.cache_service import CacheService
 from app.services.doctor_service import DoctorService
 from app.services.drug_service import DrugService
 from app.services.patient_service import PatientService
+from app.services.prescription_service import PrescriptionService
 from app.services.search_service import SearchService
 
 bearer_scheme = HTTPBearer(auto_error=False)
@@ -26,6 +29,7 @@ _db_engine: AsyncEngine | None = None
 _session_factory: async_sessionmaker[AsyncSession] | None = None
 _redis_client: redis.Redis | None = None
 _es_client: AsyncElasticsearch | None = None
+_openai_client: AsyncOpenAI | None = None
 
 
 class TokenData(BaseModel):
@@ -48,6 +52,11 @@ def set_redis_client(client: redis.Redis) -> None:
 def set_es_client(client: AsyncElasticsearch) -> None:
     global _es_client
     _es_client = client
+
+
+def set_openai_client(client: AsyncOpenAI) -> None:
+    global _openai_client
+    _openai_client = client
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -74,6 +83,12 @@ def get_es() -> AsyncElasticsearch:
     if _es_client is None:
         raise RuntimeError("Elasticsearch client has not been initialized")
     return _es_client
+
+
+def get_openai() -> AsyncOpenAI:
+    if _openai_client is None:
+        raise RuntimeError("OpenAI client has not been initialized")
+    return _openai_client
 
 
 def get_cache_service(redis_client: redis.Redis = Depends(get_redis)) -> CacheService:
@@ -104,6 +119,18 @@ def get_doctor_service(
     db: AsyncSession = Depends(get_db),
 ) -> DoctorService:
     return DoctorService(db=db)
+
+
+def get_ai_service(client: AsyncOpenAI = Depends(get_openai)) -> AIService:
+    return AIService(client=client)
+
+
+def get_prescription_service(
+    db: AsyncSession = Depends(get_db),
+    ai: AIService = Depends(get_ai_service),
+    cache: CacheService = Depends(get_cache_service),
+) -> PrescriptionService:
+    return PrescriptionService(db=db, ai=ai, cache=cache)
 
 
 async def _fetch_jwks() -> dict[str, Any]:

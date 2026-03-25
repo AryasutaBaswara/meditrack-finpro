@@ -10,10 +10,16 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 
 from app.api.v1 import router as api_router
-from app.api.v1.dependencies import set_db_engine, set_es_client, set_redis_client
+from app.api.v1.dependencies import (
+    set_db_engine,
+    set_es_client,
+    set_openai_client,
+    set_redis_client,
+)
 from app.core.config import settings
 from app.core.exceptions import MediTrackException
 from app.core.responses import ApiResponse, error_response, success_response
@@ -54,11 +60,19 @@ async def lifespan(app: FastAPI):
     set_es_client(es_client)
     app.state.elasticsearch = es_client
 
+    openai_client = AsyncOpenAI(
+        api_key=settings.openai_api_key,
+        timeout=settings.openai_timeout,
+    )
+    set_openai_client(openai_client)
+    app.state.openai = openai_client
+
     logger.info("MediTrack started")
 
     try:
         yield
     finally:
+        await openai_client.close()
         await es_client.close()
         await redis_client.close()
         await engine.dispose()
