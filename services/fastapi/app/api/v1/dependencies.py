@@ -54,7 +54,7 @@ def set_es_client(client: AsyncElasticsearch) -> None:
     _es_client = client
 
 
-def set_openai_client(client: AsyncOpenAI) -> None:
+def set_openai_client(client: AsyncOpenAI | None) -> None:
     global _openai_client
     _openai_client = client
 
@@ -85,9 +85,7 @@ def get_es() -> AsyncElasticsearch:
     return _es_client
 
 
-def get_openai() -> AsyncOpenAI:
-    if _openai_client is None:
-        raise RuntimeError("OpenAI client has not been initialized")
+def get_openai() -> AsyncOpenAI | None:
     return _openai_client
 
 
@@ -121,7 +119,7 @@ def get_doctor_service(
     return DoctorService(db=db)
 
 
-def get_ai_service(client: AsyncOpenAI = Depends(get_openai)) -> AIService:
+def get_ai_service(client: AsyncOpenAI | None = Depends(get_openai)) -> AIService:
     return AIService(client=client)
 
 

@@ -33,6 +33,8 @@ def _parse_cors_origins(origins: str) -> list[str]:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    openai_client: AsyncOpenAI | None = None
+
     engine: AsyncEngine = create_async_engine(
         settings.database_url,
         pool_pre_ping=True,
@@ -60,10 +62,14 @@ async def lifespan(app: FastAPI):
     set_es_client(es_client)
     app.state.elasticsearch = es_client
 
-    openai_client = AsyncOpenAI(
-        api_key=settings.openai_api_key,
-        timeout=settings.openai_timeout,
-    )
+    if settings.openai_provider.lower() == "openai":
+        if not settings.openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY is required when OPENAI_PROVIDER=openai")
+
+        openai_client = AsyncOpenAI(
+            api_key=settings.openai_api_key,
+            timeout=settings.openai_timeout,
+        )
     set_openai_client(openai_client)
     app.state.openai = openai_client
 
@@ -72,7 +78,8 @@ async def lifespan(app: FastAPI):
     try:
         yield
     finally:
-        await openai_client.close()
+        if openai_client is not None:
+            await openai_client.close()
         await es_client.close()
         await redis_client.close()
         await engine.dispose()

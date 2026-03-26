@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.core.exceptions import InsufficientStockException, UnauthorizedException
+from app.core.exceptions import UnauthorizedException
 from app.db.models.doctor import Doctor
 from app.db.models.drug import Drug
 from app.db.models.patient import Patient
@@ -17,12 +17,16 @@ from app.models.prescription import (
     InteractionCheckResponse,
     PrescriptionCreate,
     PrescriptionItemCreate,
+    StockCheckItemResponse,
+    StockCheckResult,
 )
 from app.services.prescription_service import PrescriptionService
 
 
 def build_service() -> tuple[PrescriptionService, Mock, AsyncMock, AsyncMock]:
     db = Mock()
+    db.add = Mock()
+    db.add_all = Mock()
     db.flush = AsyncMock()
     db.refresh = AsyncMock()
     db.execute = AsyncMock()
@@ -82,7 +86,12 @@ async def test_create_keeps_prescription_in_draft_on_severe_interaction(monkeypa
         return patient
 
     async def fake_get_drugs_for_items(_items):
-        return [drug]
+        return [drug], StockCheckResult(
+            has_issues=False,
+            status="ok",
+            details="All requested drugs are available in stock.",
+            items=[],
+        )
 
     async def fake_get_prescription_with_items(_prescription_id):
         return returned_prescription
@@ -111,6 +120,12 @@ async def test_create_keeps_prescription_in_draft_on_severe_interaction(monkeypa
         "severity": "severe",
         "details": "Severe interaction detected",
         "drugs_checked": [drug.name],
+    }
+    assert created_prescription.stock_check_result == {
+        "has_issues": False,
+        "status": "ok",
+        "details": "All requested drugs are available in stock.",
+        "items": [],
     }
     cache.delete_pattern.assert_awaited_once_with("prescriptions:*")
     assert result is returned_prescription
@@ -141,7 +156,12 @@ async def test_create_validates_prescription_on_non_severe_interaction(monkeypat
         return patient
 
     async def fake_get_drugs_for_items(_items):
-        return [drug]
+        return [drug], StockCheckResult(
+            has_issues=False,
+            status="ok",
+            details="All requested drugs are available in stock.",
+            items=[],
+        )
 
     async def fake_get_prescription_with_items(_prescription_id):
         return Prescription(
@@ -170,10 +190,18 @@ async def test_create_validates_prescription_on_non_severe_interaction(monkeypat
 
     created_prescription = db.add.call_args.args[0]
     assert created_prescription.status == PrescriptionStatus.VALIDATED
+    assert created_prescription.stock_check_result == {
+        "has_issues": False,
+        "status": "ok",
+        "details": "All requested drugs are available in stock.",
+        "items": [],
+    }
 
 
 @pytest.mark.asyncio
-async def test_get_drugs_for_items_raises_when_stock_is_insufficient(monkeypatch):
+async def test_get_drugs_for_items_returns_stock_issue_when_stock_is_insufficient(
+    monkeypatch,
+):
     service, _db, _ai, _cache = build_service()
     drug_id = uuid4()
     items = [
@@ -199,8 +227,88 @@ async def test_get_drugs_for_items_raises_when_stock_is_insufficient(monkeypatch
 
     monkeypatch.setattr(service, "_get_drugs_by_ids", fake_get_drugs_by_ids)
 
-    with pytest.raises(InsufficientStockException):
-        await service._get_drugs_for_items(items)
+    drugs, stock_check_result = await service._get_drugs_for_items(items)
+
+    assert drugs == [drug]
+    assert stock_check_result.has_issues is True
+    assert stock_check_result.status == "insufficient_stock"
+    assert stock_check_result.items[0].drug_id == drug_id
+    assert stock_check_result.items[0].available_stock == 1
+    assert stock_check_result.items[0].requested_quantity == 3
+
+
+@pytest.mark.asyncio
+async def test_create_keeps_prescription_in_draft_on_stock_issue(monkeypatch):
+    service, db, ai, _cache = build_service()
+    user = User(id=uuid4(), keycloak_sub="kc-user-1", email="doctor@example.com")
+    doctor = Doctor(id=uuid4(), user_id=user.id, sip_number="SIP-001")
+    patient = Patient(id=uuid4(), user_id=uuid4())
+    drug = Drug(
+        id=uuid4(),
+        name="Amoxicillin",
+        category="Antibiotic",
+        stock=0,
+        price=Decimal("15000.00"),
+        unit="capsule",
+    )
+
+    async def fake_get_user_by_sub(_sub):
+        return user
+
+    async def fake_get_doctor_for_user(_user_id):
+        return doctor
+
+    async def fake_get_patient(_patient_id):
+        return patient
+
+    async def fake_get_drugs_for_items(_items):
+        return [drug], stock_result
+
+    async def fake_get_prescription_with_items(_prescription_id):
+        return Prescription(
+            id=uuid4(),
+            doctor_id=doctor.id,
+            patient_id=patient.id,
+            status=PrescriptionStatus.DRAFT,
+        )
+
+    stock_result = StockCheckResult(
+        has_issues=True,
+        status="out_of_stock",
+        details="Amoxicillin is out of stock",
+        items=[
+            StockCheckItemResponse(
+                drug_id=drug.id,
+                drug_name=drug.name,
+                requested_quantity=2,
+                available_stock=0,
+                status="out_of_stock",
+            )
+        ],
+    )
+
+    monkeypatch.setattr(service, "_get_user_by_sub", fake_get_user_by_sub)
+    monkeypatch.setattr(service, "_get_doctor_for_user", fake_get_doctor_for_user)
+    monkeypatch.setattr(service, "_get_patient", fake_get_patient)
+    monkeypatch.setattr(service, "_get_drugs_for_items", fake_get_drugs_for_items)
+    monkeypatch.setattr(
+        service, "_get_prescription_with_items", fake_get_prescription_with_items
+    )
+    ai.check_drug_interactions.return_value = InteractionCheckResponse(
+        has_interactions=False,
+        severity="none",
+        details="No significant interaction found",
+        drugs_checked=[drug.name],
+    )
+
+    payload = build_prescription_create(patient.id)
+    await service.create(payload, build_current_user("doctor"))
+
+    created_prescription = db.add.call_args.args[0]
+    assert created_prescription.status == PrescriptionStatus.DRAFT
+    assert created_prescription.stock_check_result == stock_result.model_dump(
+        mode="json"
+    )
 
 
 @pytest.mark.asyncio

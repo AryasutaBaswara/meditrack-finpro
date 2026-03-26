@@ -39,6 +39,25 @@ class PrescriptionItemResponse(BaseModel):
     drug: DrugResponse | None = None
 
 
+class StockCheckItemResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    drug_id: UUID
+    drug_name: str
+    requested_quantity: int
+    available_stock: int
+    status: str
+
+
+class StockCheckResult(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    has_issues: bool
+    status: str
+    details: str = Field(min_length=1, max_length=2000)
+    items: list[StockCheckItemResponse] = Field(default_factory=list)
+
+
 class PrescriptionCreate(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -63,6 +82,7 @@ class PrescriptionResponse(BaseModel):
     status: PrescriptionStatus
     notes: str | None = None
     interaction_check_result: dict[str, Any] | None = None
+    stock_check_result: StockCheckResult | None = None
     items: list[PrescriptionItemResponse] = Field(default_factory=list)
     created_at: datetime
 

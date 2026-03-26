@@ -31,7 +31,8 @@ class Settings(BaseSettings):
     elasticsearch_username: str = ""
     elasticsearch_password: str = ""
 
-    openai_api_key: str
+    openai_provider: str = "openai"
+    openai_api_key: str = ""
     openai_model: str = "gpt-4o"
     openai_max_tokens: int = 1000
     openai_timeout: int = 30

@@ -11,7 +11,6 @@ from sqlalchemy.orm import selectinload
 from app.core.exceptions import (
     DoctorNotFoundException,
     DrugNotFoundException,
-    InsufficientStockException,
     PatientNotFoundException,
     PrescriptionNotFoundException,
     UnauthorizedException,
@@ -31,6 +30,8 @@ from app.models.prescription import (
     InteractionCheckResponse,
     PrescriptionCreate,
     PrescriptionItemCreate,
+    StockCheckItemResponse,
+    StockCheckResult,
 )
 from app.services.ai_service import AIService
 from app.services.cache_service import CacheService
@@ -48,7 +49,7 @@ class PrescriptionService:
         user = await self._get_user_by_sub(current_user.sub)
         doctor = await self._get_doctor_for_user(user.id)
         patient = await self._get_patient(data.patient_id)
-        drugs = await self._get_drugs_for_items(data.items)
+        drugs, stock_check_result = await self._get_drugs_for_items(data.items)
         drug_names = [drug.name for drug in drugs]
         interaction_result = await self.ai.check_drug_interactions(drug_names)
 
@@ -58,6 +59,7 @@ class PrescriptionService:
             status=PrescriptionStatus.DRAFT,
             notes=data.notes,
             interaction_check_result=interaction_result.model_dump(mode="json"),
+            stock_check_result=stock_check_result.model_dump(mode="json"),
         )
         self.db.add(prescription)
         await self.db.flush()
@@ -76,7 +78,10 @@ class PrescriptionService:
         self.db.add_all(items)
         await self.db.flush()
 
-        if interaction_result.severity != "severe":
+        if (
+            interaction_result.severity != "severe"
+            and not stock_check_result.has_issues
+        ):
             prescription.status = PrescriptionStatus.VALIDATED
 
         await self.db.flush()
@@ -201,16 +206,63 @@ class PrescriptionService:
 
     async def _get_drugs_for_items(
         self, items: list[PrescriptionItemCreate]
-    ) -> list[Drug]:
+    ) -> tuple[list[Drug], StockCheckResult]:
         requested_quantities = Counter()
         for item in items:
             requested_quantities[item.drug_id] += item.quantity
 
         drugs = await self._get_drugs_by_ids(list(requested_quantities.keys()))
+        stock_issue_items: list[StockCheckItemResponse] = []
+        issue_messages: list[str] = []
+
         for drug in drugs:
-            if requested_quantities[drug.id] > drug.stock:
-                raise InsufficientStockException(drug.name)
-        return drugs
+            requested_quantity = requested_quantities[drug.id]
+            if drug.stock <= 0:
+                stock_issue_items.append(
+                    StockCheckItemResponse(
+                        drug_id=drug.id,
+                        drug_name=drug.name,
+                        requested_quantity=requested_quantity,
+                        available_stock=drug.stock,
+                        status="out_of_stock",
+                    )
+                )
+                issue_messages.append(f"{drug.name} is out of stock")
+                continue
+
+            if requested_quantity > drug.stock:
+                stock_issue_items.append(
+                    StockCheckItemResponse(
+                        drug_id=drug.id,
+                        drug_name=drug.name,
+                        requested_quantity=requested_quantity,
+                        available_stock=drug.stock,
+                        status="insufficient_stock",
+                    )
+                )
+                issue_messages.append(
+                    f"{drug.name} only has {drug.stock} units available for {requested_quantity} requested"
+                )
+
+        if stock_issue_items:
+            overall_status = (
+                "out_of_stock"
+                if any(item.status == "out_of_stock" for item in stock_issue_items)
+                else "insufficient_stock"
+            )
+            return drugs, StockCheckResult(
+                has_issues=True,
+                status=overall_status,
+                details="; ".join(issue_messages),
+                items=stock_issue_items,
+            )
+
+        return drugs, StockCheckResult(
+            has_issues=False,
+            status="ok",
+            details="All requested drugs are available in stock.",
+            items=[],
+        )
 
     async def _get_drugs_by_ids(self, drug_ids: list[UUID]) -> list[Drug]:
         if not drug_ids:
