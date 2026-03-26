@@ -3,6 +3,7 @@ name: meditrack
 services:
   # ────────────────────────────────────────────────────────────
   # FASTAPI — Core Backend Service
+  # Uses Supabase local running outside this compose stack
   # ────────────────────────────────────────────────────────────
   fastapi:
     build:
@@ -16,7 +17,8 @@ services:
       - ../../.env
     environment:
       APP_ENV: development
-      DATABASE_URL: postgresql+asyncpg://meditrack:meditrack@postgres:5432/meditrack
+      DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@host.docker.internal:54322/postgres}
+      SUPABASE_URL: ${DOCKER_SUPABASE_URL:-http://host.docker.internal:54321}
       REDIS_URL: redis://redis:6379/0
       ELASTICSEARCH_URL: http://elasticsearch:9200
       KEYCLOAK_URL: http://keycloak:8080
@@ -24,12 +26,12 @@ services:
     volumes:
       - ../../services/fastapi:/app # hot reload in dev
     depends_on:
-      postgres:
-        condition: service_healthy
       redis:
         condition: service_healthy
       elasticsearch:
         condition: service_healthy
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - meditrack-network
     labels:
@@ -57,6 +59,7 @@ services:
   # KEYCLOAK — Auth Server
   # Admin console: http://localhost:8080
   # Admin credentials: admin / admin (dev only)
+  # Uses dev-file storage in local development
   # ────────────────────────────────────────────────────────────
   keycloak:
     image: quay.io/keycloak/keycloak:23.0
@@ -68,44 +71,10 @@ services:
     environment:
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
-      KC_DB_USERNAME: meditrack
-      KC_DB_PASSWORD: meditrack
       KC_HOSTNAME_STRICT: false
       KC_HTTP_ENABLED: true
     volumes:
       - ./keycloak/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - meditrack-network
-
-  # ────────────────────────────────────────────────────────────
-  # POSTGRESQL — Local Dev + Test Database
-  # NOT Supabase — this is for local dev & CI test isolation
-  # Supabase cloud is used for staging/prod
-  # ────────────────────────────────────────────────────────────
-  postgres:
-    image: postgres:16-alpine
-    container_name: meditrack-postgres
-    restart: unless-stopped
-    ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_USER: meditrack
-      POSTGRES_PASSWORD: meditrack
-      POSTGRES_MULTIPLE_DATABASES: meditrack,keycloak,meditrack_test
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-      - ./postgres/init-multiple-db.sh:/docker-entrypoint-initdb.d/init-multiple-db.sh:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U meditrack -d meditrack"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     networks:
       - meditrack-network
 
@@ -196,8 +165,6 @@ services:
 # VOLUMES
 # ────────────────────────────────────────────────────────────
 volumes:
-  postgres-data:
-    name: meditrack-postgres-data
   redis-data:
     name: meditrack-redis-data
   elasticsearch-data:

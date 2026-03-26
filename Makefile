@@ -4,7 +4,7 @@
 # ─────────────────────────────────────────────────────────────
 
 .PHONY: help dev down restart logs build test test-unit test-integration \
-	test-e2e lint format hooks migrate seed k8s-up k8s-down k8s-status \
+	test-e2e lint format hooks migrate seed db-reset-local k8s-up k8s-down k8s-status \
 	k8s-logs clean setup
 
 # ── Default ───────────────────────────────────────────────────
@@ -14,7 +14,7 @@ help:
 	@echo "  ─────────────────────────────────────────────"
 	@echo "  Dev Environment:"
 	@echo "    make setup          First-time setup (install deps)"
-	@echo "    make dev            Start all services (Docker Compose)"
+	@echo "    make dev            Start Supabase local + app services"
 	@echo "    make down           Stop all services"
 	@echo "    make restart        Restart all services"
 	@echo "    make logs           Tail logs from all services"
@@ -23,7 +23,8 @@ help:
 	@echo "  Database:"
 	@echo "    make migrate        Run Alembic migrations"
 	@echo "    make migrate-down   Rollback last migration"
-	@echo "    make seed           Run database seed script"
+	@echo "    make seed           Reset local Supabase DB, re-apply Alembic schema, then load smoke-test seed data"
+	@echo "    make db-reset-local Reset local Supabase DB, re-apply Alembic schema, then load smoke-test seed data"
 	@echo "    make migration m=   Create new migration (make migration m='add_users')"
 	@echo ""
 	@echo "  Testing:"
@@ -66,15 +67,21 @@ setup:
 
 # ── Docker Compose (Local Dev) ────────────────────────────────
 dev:
+	@echo "→ Starting Supabase local..."
+	supabase start
 	@echo "→ Starting MediTrack services..."
 	docker compose -f infra/docker/docker-compose.yml up -d
 	@echo "✅ Services running. FastAPI: http://localhost:8000/docs"
 
 down:
+	@echo "→ Stopping MediTrack compose services..."
 	docker compose -f infra/docker/docker-compose.yml down
+	@echo "→ Stopping Supabase local..."
+	supabase stop
 
 restart:
-	docker compose -f infra/docker/docker-compose.yml restart
+	@$(MAKE) down
+	@$(MAKE) dev
 
 logs:
 	docker compose -f infra/docker/docker-compose.yml logs -f
@@ -100,8 +107,20 @@ migration:
 	cd services/fastapi && alembic revision --autogenerate -m "$(m)"
 
 seed:
-	@echo "→ Running seed script..."
-	cd services/fastapi && python -m app.db.seed
+	@$(MAKE) db-reset-local
+
+db-reset-local:
+	@echo "→ Resetting Supabase local database..."
+	supabase db reset --local --yes
+	@echo "→ Re-applying Alembic schema after Supabase reset..."
+	cd services/fastapi && alembic upgrade head
+	@echo "→ Loading smoke-test seed data into Supabase local..."
+	@DB_CONTAINER=$$(docker ps --format '{{.Names}}' | grep '^supabase_db_' | head -n 1); \
+	if [ -z "$$DB_CONTAINER" ]; then \
+		echo "❌ Supabase Postgres container not found. Start Supabase local first."; \
+		exit 1; \
+	fi; \
+	docker exec -i "$$DB_CONTAINER" psql -U postgres -d postgres < infra/supabase/seed/seed.sql
 
 # ── Testing ───────────────────────────────────────────────────
 test:
