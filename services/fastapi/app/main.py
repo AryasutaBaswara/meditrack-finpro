@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import AsyncOpenAI
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from supabase import Client, create_client
 
 from app.api.v1 import router as api_router
 from app.api.v1.dependencies import (
@@ -19,6 +20,7 @@ from app.api.v1.dependencies import (
     set_es_client,
     set_openai_client,
     set_redis_client,
+    set_supabase_client,
 )
 from app.core.config import settings
 from app.core.exceptions import MediTrackException
@@ -34,6 +36,10 @@ def _parse_cors_origins(origins: str) -> list[str]:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     openai_client: AsyncOpenAI | None = None
+    supabase_client: Client = create_client(
+        settings.supabase_url,
+        settings.supabase_service_role_key,
+    )
 
     engine: AsyncEngine = create_async_engine(
         settings.database_url,
@@ -72,6 +78,8 @@ async def lifespan(app: FastAPI):
         )
     set_openai_client(openai_client)
     app.state.openai = openai_client
+    set_supabase_client(supabase_client)
+    app.state.supabase = supabase_client
 
     logger.info("MediTrack started")
 

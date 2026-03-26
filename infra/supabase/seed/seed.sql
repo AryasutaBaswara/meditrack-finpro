@@ -1,5 +1,15 @@
 BEGIN;
 
+INSERT INTO storage.buckets (id, name, public)
+VALUES (
+	'prescription-files',
+	'prescription-files',
+	FALSE
+)
+ON CONFLICT (id) DO UPDATE
+SET name = EXCLUDED.name,
+	public = EXCLUDED.public;
+
 INSERT INTO roles (id, name, description)
 VALUES
 	('10000000-0000-0000-0000-000000000001', 'admin', 'System administrator'),
