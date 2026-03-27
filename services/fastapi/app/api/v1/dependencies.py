@@ -7,21 +7,27 @@ import httpx
 import redis.asyncio as redis
 from elasticsearch import AsyncElasticsearch
 from fastapi import Depends
-from openai import AsyncOpenAI
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
-from pydantic import BaseModel
+from openai import AsyncOpenAI
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+from supabase import Client
 
 from app.core.config import settings
 from app.core.exceptions import UnauthorizedException
+from app.db.models.user import User
+from app.models.auth import TokenData
 from app.services.ai_service import AIService
 from app.services.cache_service import CacheService
+from app.services.dispensation_service import DispensationService
 from app.services.doctor_service import DoctorService
 from app.services.drug_service import DrugService
 from app.services.patient_service import PatientService
+from app.services.pdf_service import PDFService
 from app.services.prescription_service import PrescriptionService
 from app.services.search_service import SearchService
+from app.services.storage_service import StorageService
 
 bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -30,12 +36,7 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 _redis_client: redis.Redis | None = None
 _es_client: AsyncElasticsearch | None = None
 _openai_client: AsyncOpenAI | None = None
-
-
-class TokenData(BaseModel):
-    sub: str
-    email: str
-    roles: list[str]
+_supabase_client: Client | None = None
 
 
 def set_db_engine(engine: AsyncEngine) -> None:
@@ -57,6 +58,11 @@ def set_es_client(client: AsyncElasticsearch) -> None:
 def set_openai_client(client: AsyncOpenAI | None) -> None:
     global _openai_client
     _openai_client = client
+
+
+def set_supabase_client(client: Client) -> None:
+    global _supabase_client
+    _supabase_client = client
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -87,6 +93,12 @@ def get_es() -> AsyncElasticsearch:
 
 def get_openai() -> AsyncOpenAI | None:
     return _openai_client
+
+
+def get_supabase() -> Client:
+    if _supabase_client is None:
+        raise RuntimeError("Supabase client has not been initialized")
+    return _supabase_client
 
 
 def get_cache_service(redis_client: redis.Redis = Depends(get_redis)) -> CacheService:
@@ -129,6 +141,23 @@ def get_prescription_service(
     cache: CacheService = Depends(get_cache_service),
 ) -> PrescriptionService:
     return PrescriptionService(db=db, ai=ai, cache=cache)
+
+
+def get_dispensation_service(
+    db: AsyncSession = Depends(get_db),
+) -> DispensationService:
+    return DispensationService(db=db)
+
+
+def get_storage_service(
+    db: AsyncSession = Depends(get_db),
+    supabase_client: Client = Depends(get_supabase),
+) -> StorageService:
+    return StorageService(supabase_client=supabase_client, db=db)
+
+
+def get_pdf_service() -> PDFService:
+    return PDFService()
 
 
 async def _fetch_jwks() -> dict[str, Any]:
@@ -196,6 +225,22 @@ async def get_current_active_user(
     current_user: TokenData = Depends(get_current_user),
 ) -> TokenData:
     return current_user
+
+
+async def get_current_db_user(
+    current_user: TokenData = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> User:
+    result = await db.execute(
+        select(User).where(
+            User.keycloak_sub == current_user.sub,
+            User.deleted_at.is_(None),
+        )
+    )
+    user = result.scalar_one_or_none()
+    if user is None:
+        raise UnauthorizedException("Authenticated user was not found")
+    return user
 
 
 def require_roles(*roles: str) -> Callable[..., TokenData]:

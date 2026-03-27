@@ -17,6 +17,7 @@ services:
       - ../../.env
     environment:
       APP_ENV: development
+      DEV: "true"
       DATABASE_URL: ${DOCKER_DATABASE_URL:-postgresql+asyncpg://postgres:postgres@host.docker.internal:54322/postgres}
       SUPABASE_URL: ${DOCKER_SUPABASE_URL:-http://host.docker.internal:54321}
       REDIS_URL: redis://redis:6379/0

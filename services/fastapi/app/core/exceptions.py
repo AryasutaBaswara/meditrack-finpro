@@ -78,6 +78,47 @@ class StorageException(MediTrackException):
         )
 
 
+class StorageFileNotFoundException(MediTrackException):
+    def __init__(self, file_id: object) -> None:
+        super().__init__(
+            code="STORAGE_FILE_NOT_FOUND",
+            message=f"Storage file with id {file_id} does not exist",
+            status_code=404,
+        )
+
+
+class DispensationNotFoundException(MediTrackException):
+    def __init__(self, dispensation_id: object) -> None:
+        super().__init__(
+            code="DISPENSATION_NOT_FOUND",
+            message=f"Dispensation with id {dispensation_id} does not exist",
+            status_code=404,
+        )
+
+
+class DuplicateDispensationException(MediTrackException):
+    def __init__(self, prescription_id: object) -> None:
+        super().__init__(
+            code="DISPENSATION_ALREADY_EXISTS",
+            message=f"Prescription {prescription_id} has already been dispensed",
+            status_code=409,
+        )
+
+
+class InvalidPrescriptionStateException(MediTrackException):
+    def __init__(
+        self, prescription_id: object, current_status: str, expected: str
+    ) -> None:
+        super().__init__(
+            code="INVALID_PRESCRIPTION_STATE",
+            message=(
+                f"Prescription {prescription_id} is in state '{current_status}' and "
+                f"must be '{expected}' for this operation"
+            ),
+            status_code=422,
+        )
+
+
 class AIServiceException(MediTrackException):
     def __init__(self, message: str) -> None:
         super().__init__(
