@@ -7,6 +7,7 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 
 from app.core.exceptions import (
+    DispensationNotFoundException,
     DuplicateDispensationException,
     InsufficientStockException,
     InvalidPrescriptionStateException,
@@ -278,3 +279,137 @@ async def test_dispense_maps_unique_constraint_to_duplicate_exception(monkeypatc
             DispensationCreate(prescription_id=prescription.id, notes=None),
             build_user("pharmacist"),
         )
+
+
+@pytest.mark.asyncio
+async def test_dispense_rejects_cancelled_prescription(monkeypatch):
+    service, _db = build_service()
+    prescription = Prescription(
+        id=uuid4(),
+        doctor_id=uuid4(),
+        patient_id=uuid4(),
+        status=PrescriptionStatus.CANCELLED,
+    )
+
+    async def fake_get_prescription(_prescription_id):
+        return prescription
+
+    monkeypatch.setattr(service, "_get_prescription", fake_get_prescription)
+
+    with pytest.raises(InvalidPrescriptionStateException):
+        await service.dispense(
+            DispensationCreate(prescription_id=prescription.id, notes=None),
+            build_user("pharmacist"),
+        )
+
+
+@pytest.mark.asyncio
+async def test_dispense_rejects_completed_prescription_as_duplicate(monkeypatch):
+    service, _db = build_service()
+    prescription = Prescription(
+        id=uuid4(),
+        doctor_id=uuid4(),
+        patient_id=uuid4(),
+        status=PrescriptionStatus.COMPLETED,
+    )
+
+    async def fake_get_prescription(_prescription_id):
+        return prescription
+
+    monkeypatch.setattr(service, "_get_prescription", fake_get_prescription)
+
+    with pytest.raises(DuplicateDispensationException):
+        await service.dispense(
+            DispensationCreate(prescription_id=prescription.id, notes=None),
+            build_user("pharmacist"),
+        )
+
+
+@pytest.mark.asyncio
+async def test_dispense_reraises_non_duplicate_integrity_error(monkeypatch):
+    service, db = build_service()
+    prescription = Prescription(
+        id=uuid4(),
+        doctor_id=uuid4(),
+        patient_id=uuid4(),
+        status=PrescriptionStatus.VALIDATED,
+    )
+    prescription.items = []
+    pharmacist = User(
+        id=uuid4(),
+        keycloak_sub="kc-pharmacist-1",
+        email="pharmacist@example.com",
+    )
+
+    async def fake_get_prescription(_prescription_id):
+        return prescription
+
+    async def fake_get_user_by_sub(_sub):
+        return pharmacist
+
+    async def fake_get_by_prescription(_prescription_id):
+        return None
+
+    db.flush.side_effect = IntegrityError(
+        "foreign key constraint violation",
+        params=None,
+        orig=Exception("fk"),
+    )
+
+    monkeypatch.setattr(service, "_get_prescription", fake_get_prescription)
+    monkeypatch.setattr(service, "_get_user_by_sub", fake_get_user_by_sub)
+    monkeypatch.setattr(service, "get_by_prescription", fake_get_by_prescription)
+
+    with pytest.raises(IntegrityError):
+        await service.dispense(
+            DispensationCreate(prescription_id=prescription.id, notes=None),
+            build_user("pharmacist"),
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_by_id_raises_when_dispensation_missing():
+    service, db = build_service()
+    db.execute = AsyncMock(
+        return_value=Mock(scalar_one_or_none=Mock(return_value=None))
+    )
+
+    with pytest.raises(DispensationNotFoundException):
+        await service.get_by_id(uuid4())
+
+
+@pytest.mark.asyncio
+async def test_get_user_by_sub_raises_when_user_missing():
+    service, db = build_service()
+    db.execute = AsyncMock(
+        return_value=Mock(scalar_one_or_none=Mock(return_value=None))
+    )
+
+    with pytest.raises(UnauthorizedException):
+        await service._get_user_by_sub("missing-user")
+
+
+def test_apply_stock_changes_skips_items_without_drug():
+    service, db = build_service()
+    prescription = Prescription(
+        id=uuid4(),
+        doctor_id=uuid4(),
+        patient_id=uuid4(),
+        status=PrescriptionStatus.VALIDATED,
+    )
+    prescription.items = [
+        PrescriptionItem(
+            id=uuid4(),
+            prescription_id=prescription.id,
+            drug_id=uuid4(),
+            dosage="500mg",
+            frequency="3x daily",
+            duration="5 days",
+            quantity=1,
+        )
+    ]
+    prescription.items[0].drug = None
+
+    service._apply_stock_changes(prescription)
+
+    db.add.assert_not_called()

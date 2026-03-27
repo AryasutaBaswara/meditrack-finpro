@@ -8,7 +8,11 @@ from uuid import uuid4
 
 import pytest
 
-from app.core.exceptions import StorageException, UnauthorizedException
+from app.core.exceptions import (
+    PrescriptionNotFoundException,
+    StorageException,
+    UnauthorizedException,
+)
 from app.db.models.doctor import Doctor
 from app.db.models.drug import Drug
 from app.db.models.patient import Patient
@@ -75,6 +79,54 @@ async def test_upload_file_persists_storage_metadata(monkeypatch):
     assert saved.uploaded_by == uploader_id
     assert saved.file_name == "lab-result.pdf"
     assert result.file_url == "https://example.com/public/file.pdf"
+
+
+@pytest.mark.asyncio
+async def test_upload_file_rejects_empty_payload(monkeypatch):
+    service, _db, _supabase_client = build_storage_service()
+
+    async def fake_get_prescription(_prescription_id):
+        return Prescription(
+            id=uuid4(),
+            doctor_id=uuid4(),
+            patient_id=uuid4(),
+            status=PrescriptionStatus.VALIDATED,
+        )
+
+    monkeypatch.setattr(service, "_get_prescription", fake_get_prescription)
+
+    upload = Mock()
+    upload.filename = "empty.pdf"
+    upload.content_type = "application/pdf"
+    upload.read = AsyncMock(return_value=b"")
+
+    with pytest.raises(StorageException):
+        await service.upload_file(upload, uuid4(), uuid4())
+
+
+@pytest.mark.asyncio
+async def test_upload_file_maps_provider_failure_to_storage_exception(monkeypatch):
+    service, _db, supabase_client = build_storage_service()
+    bucket = supabase_client.storage.from_.return_value
+    bucket.upload = Mock(side_effect=RuntimeError("boom"))
+
+    async def fake_get_prescription(_prescription_id):
+        return Prescription(
+            id=uuid4(),
+            doctor_id=uuid4(),
+            patient_id=uuid4(),
+            status=PrescriptionStatus.VALIDATED,
+        )
+
+    monkeypatch.setattr(service, "_get_prescription", fake_get_prescription)
+
+    upload = Mock()
+    upload.filename = "lab-result.pdf"
+    upload.content_type = "application/pdf"
+    upload.read = AsyncMock(return_value=b"fake-pdf-bytes")
+
+    with pytest.raises(StorageException):
+        await service.upload_file(upload, uuid4(), uuid4())
 
 
 @pytest.mark.asyncio
@@ -231,6 +283,231 @@ async def test_get_signed_url_rejects_deleted_prescription(monkeypatch):
             storage_file.id,
             build_current_user("kc-patient-1", "patient"),
         )
+
+
+@pytest.mark.asyncio
+async def test_get_signed_url_allows_admin_without_prescription_ownership(monkeypatch):
+    service, _db, supabase_client = build_storage_service()
+    storage_file = StorageFile(
+        id=uuid4(),
+        prescription_id=uuid4(),
+        uploaded_by=uuid4(),
+        file_name="lab.pdf",
+        file_url="https://example.com/storage/v1/object/public/prescription-files/path/to/lab.pdf",
+    )
+    bucket = supabase_client.storage.from_.return_value
+    bucket.create_signed_url = Mock(
+        return_value={"signedURL": "https://signed.example.com/admin-file"}
+    )
+
+    async def fake_get_storage_file(_file_id):
+        return storage_file
+
+    monkeypatch.setattr(service, "_get_storage_file", fake_get_storage_file)
+
+    result = await service.get_signed_url(
+        storage_file.id, build_current_user("admin-1", "admin")
+    )
+
+    assert result == "https://signed.example.com/admin-file"
+
+
+@pytest.mark.asyncio
+async def test_get_signed_url_allows_prescription_owner_doctor(monkeypatch):
+    service, _db, supabase_client = build_storage_service()
+    prescription = Prescription(
+        id=uuid4(),
+        doctor_id=uuid4(),
+        patient_id=uuid4(),
+        status=PrescriptionStatus.COMPLETED,
+    )
+    doctor_user = User(
+        id=uuid4(),
+        keycloak_sub="kc-doctor-1",
+        email="doctor@example.com",
+    )
+    prescription.doctor = Doctor(
+        id=prescription.doctor_id,
+        user_id=doctor_user.id,
+        sip_number="SIP-001",
+    )
+    prescription.doctor.user = doctor_user
+    storage_file = StorageFile(
+        id=uuid4(),
+        prescription_id=prescription.id,
+        uploaded_by=uuid4(),
+        file_name="lab.pdf",
+        file_url="https://example.com/storage/v1/object/public/prescription-files/path/to/lab.pdf",
+    )
+    storage_file.prescription = prescription
+    bucket = supabase_client.storage.from_.return_value
+    bucket.create_signed_url = Mock(
+        return_value={"signedURL": "https://signed.example.com/doctor-file"}
+    )
+
+    async def fake_get_storage_file(_file_id):
+        return storage_file
+
+    monkeypatch.setattr(service, "_get_storage_file", fake_get_storage_file)
+
+    result = await service.get_signed_url(
+        storage_file.id,
+        build_current_user("kc-doctor-1", "doctor"),
+    )
+
+    assert result == "https://signed.example.com/doctor-file"
+
+
+@pytest.mark.asyncio
+async def test_get_signed_url_rejects_file_without_prescription(monkeypatch):
+    service, _db, _supabase_client = build_storage_service()
+    storage_file = StorageFile(
+        id=uuid4(),
+        prescription_id=uuid4(),
+        uploaded_by=uuid4(),
+        file_name="lab.pdf",
+        file_url="https://example.com/storage/v1/object/public/prescription-files/path/to/lab.pdf",
+    )
+    storage_file.prescription = None
+
+    async def fake_get_storage_file(_file_id):
+        return storage_file
+
+    monkeypatch.setattr(service, "_get_storage_file", fake_get_storage_file)
+
+    with pytest.raises(UnauthorizedException):
+        await service.get_signed_url(
+            storage_file.id, build_current_user("kc-user-1", "patient")
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_signed_url_maps_provider_failure_to_storage_exception(monkeypatch):
+    service, _db, supabase_client = build_storage_service()
+    storage_file = StorageFile(
+        id=uuid4(),
+        prescription_id=uuid4(),
+        uploaded_by=uuid4(),
+        file_name="lab.pdf",
+        file_url="https://example.com/storage/v1/object/public/prescription-files/path/to/lab.pdf",
+    )
+    bucket = supabase_client.storage.from_.return_value
+    bucket.create_signed_url = Mock(side_effect=RuntimeError("boom"))
+
+    async def fake_get_storage_file(_file_id):
+        return storage_file
+
+    monkeypatch.setattr(service, "_get_storage_file", fake_get_storage_file)
+
+    with pytest.raises(StorageException):
+        await service.get_signed_url(
+            storage_file.id, build_current_user("admin-1", "admin")
+        )
+
+
+@pytest.mark.asyncio
+async def test_get_signed_url_rejects_empty_signed_url(monkeypatch):
+    service, _db, supabase_client = build_storage_service()
+    storage_file = StorageFile(
+        id=uuid4(),
+        prescription_id=uuid4(),
+        uploaded_by=uuid4(),
+        file_name="lab.pdf",
+        file_url="https://example.com/storage/v1/object/public/prescription-files/path/to/lab.pdf",
+    )
+    bucket = supabase_client.storage.from_.return_value
+    bucket.create_signed_url = Mock(return_value={"signedURL": ""})
+
+    async def fake_get_storage_file(_file_id):
+        return storage_file
+
+    monkeypatch.setattr(service, "_get_storage_file", fake_get_storage_file)
+
+    with pytest.raises(StorageException):
+        await service.get_signed_url(
+            storage_file.id, build_current_user("admin-1", "admin")
+        )
+
+
+def test_extract_url_value_supports_nested_data_dict():
+    service, _db, _supabase_client = build_storage_service()
+
+    result = service._extract_url_value(
+        {"data": {"publicUrl": "https://example.com/nested-file.pdf"}}
+    )
+
+    assert result == "https://example.com/nested-file.pdf"
+
+
+def test_extract_url_value_rejects_invalid_response():
+    service, _db, _supabase_client = build_storage_service()
+
+    with pytest.raises(StorageException):
+        service._extract_url_value({"unexpected": "value"})
+
+
+def test_extract_storage_path_supports_signed_url_path():
+    service, _db, _supabase_client = build_storage_service()
+
+    result = service._extract_storage_path(
+        "https://example.com/storage/v1/object/sign/prescription-files/path/to/lab.pdf"
+    )
+
+    assert result == "path/to/lab.pdf"
+
+
+def test_extract_storage_path_supports_raw_bucket_path():
+    service, _db, _supabase_client = build_storage_service()
+
+    result = service._extract_storage_path("prescription-files/path/to/lab.pdf")
+
+    assert result == "path/to/lab.pdf"
+
+
+@pytest.mark.asyncio
+async def test_generate_prescription_pdf_raises_when_prescription_missing():
+    service = PDFService()
+
+    async def fake_get_prescription(_prescription_id, _db):
+        raise PrescriptionNotFoundException(_prescription_id)
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr(service, "_get_prescription", fake_get_prescription)
+
+    with pytest.raises(PrescriptionNotFoundException):
+        await service.generate_prescription_pdf(uuid4(), db=Mock())
+
+    monkeypatch.undo()
+
+
+def test_pdf_helpers_use_safe_fallbacks_for_missing_data():
+    service = PDFService()
+
+    assert service._display_name(None, None) == "-"
+    assert service._format_date(None) == "-"
+    assert service._format_date("raw-value") == "raw-value"
+    assert (
+        service._format_interaction_result(None) == "No interaction analysis recorded."
+    )
+
+
+def test_pdf_build_drug_table_handles_missing_drug():
+    service = PDFService()
+    item = PrescriptionItem(
+        id=uuid4(),
+        prescription_id=uuid4(),
+        drug_id=uuid4(),
+        dosage="500mg",
+        frequency="3x daily",
+        duration="5 days",
+        quantity=2,
+    )
+    item.drug = None
+
+    table = service._build_drug_table([item])
+
+    assert len(table._cellvalues) == 2
+    assert table._cellvalues[1][0] == "-"
 
 
 @pytest.mark.asyncio
