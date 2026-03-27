@@ -8,7 +8,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.core.exceptions import UnauthorizedException
+from app.core.exceptions import StorageException, UnauthorizedException
 from app.db.models.doctor import Doctor
 from app.db.models.drug import Drug
 from app.db.models.patient import Patient
@@ -158,6 +158,78 @@ async def test_get_signed_url_rejects_unrelated_user(monkeypatch):
         await service.get_signed_url(
             storage_file.id,
             build_current_user("kc-outsider-1", "patient"),
+        )
+
+
+@pytest.mark.asyncio
+async def test_upload_file_cleans_up_object_when_metadata_persistence_fails(
+    monkeypatch,
+):
+    service, db, supabase_client = build_storage_service()
+    prescription_id = uuid4()
+    uploader_id = uuid4()
+    bucket = supabase_client.storage.from_.return_value
+    bucket.upload = Mock(return_value={"path": "ok"})
+    bucket.get_public_url = Mock(return_value="https://example.com/public/file.pdf")
+    bucket.remove = Mock(return_value={"data": []})
+    db.flush.side_effect = RuntimeError("db flush failed")
+
+    async def fake_get_prescription(_prescription_id):
+        return Prescription(
+            id=prescription_id,
+            doctor_id=uuid4(),
+            patient_id=uuid4(),
+            status=PrescriptionStatus.VALIDATED,
+        )
+
+    monkeypatch.setattr(service, "_get_prescription", fake_get_prescription)
+
+    upload = Mock()
+    upload.filename = "lab-result.pdf"
+    upload.content_type = "application/pdf"
+    upload.read = AsyncMock(return_value=b"fake-pdf-bytes")
+
+    with pytest.raises(StorageException):
+        await service.upload_file(upload, prescription_id, uploader_id)
+
+    assert bucket.remove.call_count == 1
+
+
+@pytest.mark.asyncio
+async def test_get_signed_url_rejects_deleted_prescription(monkeypatch):
+    service, _db, _supabase_client = build_storage_service()
+    prescription = Prescription(
+        id=uuid4(),
+        doctor_id=uuid4(),
+        patient_id=uuid4(),
+        status=PrescriptionStatus.COMPLETED,
+    )
+    prescription.deleted_at = datetime.now(timezone.utc)
+    patient_user = User(
+        id=uuid4(),
+        keycloak_sub="kc-patient-1",
+        email="patient@example.com",
+    )
+    prescription.patient = Patient(id=prescription.patient_id, user_id=patient_user.id)
+    prescription.patient.user = patient_user
+    storage_file = StorageFile(
+        id=uuid4(),
+        prescription_id=prescription.id,
+        uploaded_by=uuid4(),
+        file_name="lab.pdf",
+        file_url="https://example.com/storage/v1/object/public/prescription-files/path/to/lab.pdf",
+    )
+    storage_file.prescription = prescription
+
+    async def fake_get_storage_file(_file_id):
+        return storage_file
+
+    monkeypatch.setattr(service, "_get_storage_file", fake_get_storage_file)
+
+    with pytest.raises(UnauthorizedException):
+        await service.get_signed_url(
+            storage_file.id,
+            build_current_user("kc-patient-1", "patient"),
         )
 
 
