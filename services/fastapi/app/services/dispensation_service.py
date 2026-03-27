@@ -3,18 +3,24 @@ from __future__ import annotations
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import (
     DispensationNotFoundException,
     DuplicateDispensationException,
+    InsufficientStockException,
     InvalidPrescriptionStateException,
     PrescriptionNotFoundException,
     UnauthorizedException,
 )
-from app.db.models.dispensation import Dispensation
-from app.db.models.prescription import Prescription, PrescriptionStatus
+from app.db.models.dispensation import Dispensation, StockLog
+from app.db.models.prescription import (
+    Prescription,
+    PrescriptionItem,
+    PrescriptionStatus,
+)
 from app.db.models.user import User
 from app.models.auth import TokenData
 from app.models.dispensation import DispensationCreate
@@ -31,17 +37,23 @@ class DispensationService:
             raise UnauthorizedException("Only pharmacists can dispense prescriptions")
 
         prescription = await self._get_prescription(data.prescription_id)
-        if prescription.status != PrescriptionStatus.VALIDATED:
+        if prescription.status in (
+            PrescriptionStatus.DRAFT,
+            PrescriptionStatus.CANCELLED,
+        ):
             raise InvalidPrescriptionStateException(
                 prescription.id,
                 prescription.status.value,
                 PrescriptionStatus.VALIDATED.value,
             )
+        if prescription.status == PrescriptionStatus.COMPLETED:
+            raise DuplicateDispensationException(prescription.id)
 
         existing = await self.get_by_prescription(prescription.id)
         if existing is not None:
             raise DuplicateDispensationException(prescription.id)
 
+        self._apply_stock_changes(prescription)
         pharmacist = await self._get_user_by_sub(current_user.sub)
 
         prescription.status = PrescriptionStatus.DISPENSING
@@ -51,11 +63,15 @@ class DispensationService:
             notes=data.notes,
         )
         self.db.add(dispensation)
-        await self.db.flush()
-
-        # Stock decrement is delegated to the database trigger.
         prescription.status = PrescriptionStatus.COMPLETED
-        await self.db.flush()
+
+        try:
+            await self.db.flush()
+        except IntegrityError as exc:
+            if self._is_duplicate_dispensation_error(exc):
+                raise DuplicateDispensationException(prescription.id) from exc
+            raise
+
         await self.db.refresh(dispensation)
         return await self.get_by_id(dispensation.id)
 
@@ -80,9 +96,43 @@ class DispensationService:
             selectinload(Dispensation.pharmacist),
         )
 
+    def _apply_stock_changes(self, prescription: Prescription) -> None:
+        for item in prescription.items:
+            drug = item.drug
+            if drug is None:
+                continue
+            if drug.stock < item.quantity:
+                raise InsufficientStockException(drug.name)
+
+            stock_before = drug.stock
+            stock_after = stock_before - item.quantity
+            drug.stock = stock_after
+            self.db.add(
+                StockLog(
+                    drug_id=drug.id,
+                    change_amount=-item.quantity,
+                    reason="dispensation",
+                    reference_id=prescription.id,
+                    stock_before=stock_before,
+                    stock_after=stock_after,
+                )
+            )
+
+    def _is_duplicate_dispensation_error(self, exc: IntegrityError) -> bool:
+        message = str(exc).lower()
+        return (
+            "dispensations" in message
+            and "prescription_id" in message
+            and ("unique" in message or "duplicate" in message)
+        )
+
     async def _get_prescription(self, prescription_id: UUID) -> Prescription:
         result = await self.db.execute(
-            select(Prescription).where(
+            select(Prescription)
+            .options(
+                selectinload(Prescription.items).selectinload(PrescriptionItem.drug)
+            )
+            .where(
                 Prescription.id == prescription_id,
                 Prescription.deleted_at.is_(None),
             )

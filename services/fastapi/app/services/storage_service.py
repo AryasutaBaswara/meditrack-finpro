@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 from uuid import UUID, uuid4
@@ -24,6 +25,8 @@ from app.db.models.prescription import Prescription
 from app.db.models.storage_file import StorageFile
 from app.models.auth import TokenData
 from app.models.storage import StorageFileResponse
+
+logger = logging.getLogger(__name__)
 
 
 class StorageService:
@@ -58,17 +61,22 @@ class StorageService:
         except Exception as exc:
             raise StorageException("Failed to upload file to Supabase Storage") from exc
 
-        storage_file = StorageFile(
-            prescription_id=prescription_id,
-            uploaded_by=uploader_id,
-            file_name=file.filename or Path(object_path).name,
-            file_url=file_url,
-            file_size=len(content),
-            mime_type=file.content_type,
-        )
-        self.db.add(storage_file)
-        await self.db.flush()
-        await self.db.refresh(storage_file)
+        try:
+            storage_file = StorageFile(
+                prescription_id=prescription_id,
+                uploaded_by=uploader_id,
+                file_name=file.filename or Path(object_path).name,
+                file_url=file_url,
+                file_size=len(content),
+                mime_type=file.content_type,
+            )
+            self.db.add(storage_file)
+            await self.db.flush()
+            await self.db.refresh(storage_file)
+        except Exception as exc:
+            await self._cleanup_uploaded_file(object_path)
+            raise StorageException("Failed to persist uploaded file metadata") from exc
+
         return StorageFileResponse.model_validate(storage_file)
 
     async def get_signed_url(self, file_id: UUID, current_user: TokenData) -> str:
@@ -128,6 +136,8 @@ class StorageService:
         prescription = storage_file.prescription
         if prescription is None:
             raise UnauthorizedException("This file is not attached to a prescription")
+        if prescription.deleted_at is not None:
+            raise UnauthorizedException("This file is no longer accessible")
 
         if "doctor" in current_user.roles:
             doctor_user = prescription.doctor.user if prescription.doctor else None
@@ -161,6 +171,21 @@ class StorageService:
             settings.storage_bucket_prescriptions
         ).create_signed_url(object_path, settings.storage_signed_url_expiry)
         return self._extract_url_value(response)
+
+    async def _cleanup_uploaded_file(self, object_path: str) -> None:
+        try:
+            await asyncio.to_thread(
+                self.supabase_client.storage.from_(
+                    settings.storage_bucket_prescriptions
+                ).remove,
+                [object_path],
+            )
+        except Exception as cleanup_exc:
+            logger.warning(
+                "Failed to cleanup uploaded storage object %s: %s",
+                object_path,
+                cleanup_exc,
+            )
 
     def _extract_url_value(self, response: object) -> str:
         if isinstance(response, str):
