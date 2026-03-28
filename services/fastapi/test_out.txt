@@ -1,0 +1,171 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.2, pytest-8.1.2, pluggy-1.6.0 -- C:\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Kalbe\meditrack\services\fastapi
+configfile: pytest.ini
+plugins: anyio-4.12.1, locust-2.43.3, asyncio-0.23.8, cov-5.0.0
+asyncio: mode=Mode.STRICT
+collecting ... collected 12 items
+
+tests/unit/test_dispensation_service.py::test_dispense_moves_validated_prescription_to_completed PASSED [  8%]
+tests/unit/test_dispensation_service.py::test_dispense_requires_pharmacist_role PASSED [ 16%]
+tests/unit/test_dispensation_service.py::test_dispense_rejects_non_validated_prescription PASSED [ 25%]
+tests/unit/test_dispensation_service.py::test_dispense_rejects_duplicate_dispensation PASSED [ 33%]
+tests/unit/test_dispensation_service.py::test_dispense_rejects_insufficient_stock PASSED [ 41%]
+tests/unit/test_dispensation_service.py::test_dispense_maps_unique_constraint_to_duplicate_exception FAILED [ 50%]
+tests/unit/test_dispensation_service.py::test_dispense_rejects_cancelled_prescription PASSED [ 58%]
+tests/unit/test_dispensation_service.py::test_dispense_rejects_completed_prescription_as_duplicate PASSED [ 66%]
+tests/unit/test_dispensation_service.py::test_dispense_reraises_non_duplicate_integrity_error PASSED [ 75%]
+tests/unit/test_dispensation_service.py::test_get_by_id_raises_when_dispensation_missing PASSED [ 83%]
+tests/unit/test_dispensation_service.py::test_get_user_by_sub_raises_when_user_missing PASSED [ 91%]
+tests/unit/test_dispensation_service.py::test_apply_stock_changes_atomic_skips_items_without_drug_id PASSED [100%]
+
+================================== FAILURES ===================================
+_________ test_dispense_maps_unique_constraint_to_duplicate_exception _________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x0000012513BA8AF0>
+
+    @pytest.mark.asyncio
+    async def test_dispense_maps_unique_constraint_to_duplicate_exception(monkeypatch):
+        service, db = build_service()
+        prescription = Prescription(
+            id=uuid4(),
+            doctor_id=uuid4(),
+            patient_id=uuid4(),
+            status=PrescriptionStatus.VALIDATED,
+        )
+        drug = Drug(
+            id=uuid4(),
+            name="Ibuprofen",
+            category="NSAID",
+            stock=5,
+            price=9000,
+            unit="tablet",
+        )
+        prescription.items = [
+            PrescriptionItem(
+                id=uuid4(),
+                prescription_id=prescription.id,
+                drug_id=drug.id,
+                dosage="400mg",
+                frequency="2x daily",
+                duration="3 days",
+                quantity=1,
+            )
+        ]
+        prescription.items[0].drug = drug
+        pharmacist = User(
+            id=uuid4(),
+            keycloak_sub="kc-pharmacist-1",
+            email="pharmacist@example.com",
+        )
+    
+        async def fake_get_prescription(_prescription_id):
+            return prescription
+    
+        async def fake_get_user_by_sub(_sub):
+            return pharmacist
+    
+        async def fake_get_by_prescription(_prescription_id):
+            return None
+    
+        db.flush.side_effect = IntegrityError(
+            "duplicate key value violates unique constraint on dispensations prescription_id",
+            params=None,
+            orig=Exception("duplicate"),
+        )
+    
+        monkeypatch.setattr(service, "_get_prescription", fake_get_prescription)
+        monkeypatch.setattr(service, "_get_user_by_sub", fake_get_user_by_sub)
+        monkeypatch.setattr(service, "get_by_prescription", fake_get_by_prescription)
+    
+        with pytest.raises(DuplicateDispensationException):
+>           await service.dispense(
+                DispensationCreate(prescription_id=prescription.id, notes=None),
+                build_user("pharmacist"),
+            )
+
+tests\unit\test_dispensation_service.py:292: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.services.dispensation_service.DispensationService object at 0x0000012513AF3410>
+data = DispensationCreate(prescription_id=UUID('fdc08163-6fbe-48e7-b978-ec1bf3dfa2aa'), notes=None)
+current_user = TokenData(sub='kc-pharmacist-1', email='pharmacist@example.com', roles=['pharmacist'])
+
+    async def dispense(
+        self, data: DispensationCreate, current_user: TokenData
+    ) -> Dispensation:
+        if "pharmacist" not in current_user.roles:
+            raise UnauthorizedException("Only pharmacists can dispense prescriptions")
+    
+        prescription = await self._get_prescription(data.prescription_id)
+        if prescription.status in (
+            PrescriptionStatus.DRAFT,
+            PrescriptionStatus.CANCELLED,
+        ):
+            raise InvalidPrescriptionStateException(
+                prescription.id,
+                prescription.status.value,
+                PrescriptionStatus.VALIDATED.value,
+            )
+        if prescription.status == PrescriptionStatus.COMPLETED:
+            raise DuplicateDispensationException(prescription.id)
+    
+        existing = await self.get_by_prescription(prescription.id)
+        if existing is not None:
+            raise DuplicateDispensationException(prescription.id)
+    
+>       await self._apply_stock_changes_atomic(prescription)
+
+app\services\dispensation_service.py:58: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <app.services.dispensation_service.DispensationService object at 0x0000012513AF3410>
+prescription = Prescription(id=fdc08163-6fbe-48e7-b978-ec1bf3dfa2aa, doctor_id=3d1ce275-7fdd-4d97-b380-36d547c36bf0, patient_id=cdf1941e-3709-4f0d-ab28-c06bb9ac95d9, status='validated')
+
+    async def _apply_stock_changes_atomic(self, prescription: Prescription) -> None:
+        """Decrement stock for each prescription item using atomic UPDATE.
+    
+        Each UPDATE is a single round-trip that atomically checks availability
+        and decrements in one operation — safe under high concurrency without
+        requiring explicit row locks (SELECT FOR UPDATE).
+    
+        If the WHERE clause `stock >= quantity` is not satisfied, the UPDATE
+        returns 0 rows, which we treat as InsufficientStockException.
+        """
+        for item in prescription.items:
+            if item.drug_id is None:
+                continue
+    
+            quantity = item.quantity
+            result = await self.db.execute(
+                update(Drug)
+                .where(
+                    Drug.id == item.drug_id,
+                    Drug.stock >= quantity,
+                    Drug.deleted_at.is_(None),
+                )
+                .values(stock=Drug.stock - quantity)
+                .returning(Drug.id, Drug.name, Drug.stock)
+            )
+            row = result.fetchone()
+    
+            if row is None:
+                # 0 rows updated \u2192 stock insufficient or drug missing
+                drug_result = await self.db.execute(
+                    select(Drug).where(Drug.id == item.drug_id)
+                )
+                drug = drug_result.scalar_one_or_none()
+                if drug is None:
+                    raise DrugNotFoundException(item.drug_id)
+                raise InsufficientStockException(drug.name)
+    
+>           drug_id, drug_name, stock_after = row
+E           TypeError: cannot unpack non-iterable coroutine object
+
+app\services\dispensation_service.py:138: TypeError
+=========================== short test summary info ===========================
+FAILED tests/unit/test_dispensation_service.py::test_dispense_maps_unique_constraint_to_duplicate_exception
+======================== 1 failed, 11 passed in 0.62s =========================
+<sys>:0: RuntimeWarning: coroutine 'AsyncMockMixin._execute_mock_call' was never awaited
+RuntimeWarning: Enable tracemalloc to get the object allocation traceback
