@@ -47,8 +47,9 @@ async def test_dispense_moves_validated_prescription_to_completed(monkeypatch):
         patient_id=uuid4(),
         status=PrescriptionStatus.VALIDATED,
     )
+    drug_id = uuid4()
     drug = Drug(
-        id=uuid4(),
+        id=drug_id,
         name="Paracetamol",
         category="Analgesic",
         stock=10,
@@ -79,6 +80,11 @@ async def test_dispense_moves_validated_prescription_to_completed(monkeypatch):
         notes="Ready for pickup",
     )
 
+    # Simulate atomic UPDATE returning (drug_id, drug_name, stock_after)
+    atomic_update_result = Mock()
+    atomic_update_result.fetchone = Mock(return_value=(drug_id, "Paracetamol", 6))
+    db.execute = AsyncMock(return_value=atomic_update_result)
+
     async def fake_get_prescription(_prescription_id):
         return prescription
 
@@ -104,7 +110,6 @@ async def test_dispense_moves_validated_prescription_to_completed(monkeypatch):
     created = db.add.call_args.args[0]
     assert created.prescription_id == prescription.id
     assert created.pharmacist_id == pharmacist.id
-    assert drug.stock == 6
     assert prescription.status == PrescriptionStatus.COMPLETED
     stock_logs = [call.args[0] for call in db.add.call_args_list if call.args]
     assert any(log.__class__.__name__ == "StockLog" for log in stock_logs)
@@ -176,9 +181,10 @@ async def test_dispense_rejects_duplicate_dispensation(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_dispense_rejects_insufficient_stock(monkeypatch):
-    service, _db = build_service()
+    service, db = build_service()
+    drug_id = uuid4()
     drug = Drug(
-        id=uuid4(),
+        id=drug_id,
         name="Amoxicillin",
         category="Antibiotic",
         stock=1,
@@ -195,7 +201,7 @@ async def test_dispense_rejects_insufficient_stock(monkeypatch):
         PrescriptionItem(
             id=uuid4(),
             prescription_id=prescription.id,
-            drug_id=drug.id,
+            drug_id=drug_id,
             dosage="500mg",
             frequency="3x daily",
             duration="5 days",
@@ -203,6 +209,14 @@ async def test_dispense_rejects_insufficient_stock(monkeypatch):
         )
     ]
     prescription.items[0].drug = drug
+
+    # Simulate: atomic UPDATE returns 0 rows (stock insufficient)
+    # then fallback SELECT returns the drug to get its name
+    no_rows_result = Mock()
+    no_rows_result.fetchone = Mock(return_value=None)
+    drug_fetch_result = Mock()
+    drug_fetch_result.scalar_one_or_none = Mock(return_value=drug)
+    db.execute = AsyncMock(side_effect=[no_rows_result, drug_fetch_result])
 
     async def fake_get_prescription(_prescription_id):
         return prescription
@@ -263,6 +277,11 @@ async def test_dispense_maps_unique_constraint_to_duplicate_exception(monkeypatc
 
     async def fake_get_by_prescription(_prescription_id):
         return None
+
+    # Simulate atomic UPDATE succeeding (stock 5 → 4 after qty=1)
+    atomic_update_result = Mock()
+    atomic_update_result.fetchone = Mock(return_value=(drug.id, "Ibuprofen", 4))
+    db.execute = AsyncMock(return_value=atomic_update_result)
 
     db.flush.side_effect = IntegrityError(
         "duplicate key value violates unique constraint on dispensations prescription_id",
@@ -389,7 +408,9 @@ async def test_get_user_by_sub_raises_when_user_missing():
         await service._get_user_by_sub("missing-user")
 
 
-def test_apply_stock_changes_skips_items_without_drug():
+@pytest.mark.asyncio
+async def test_apply_stock_changes_atomic_skips_items_without_drug_id():
+    """Items with drug_id=None are silently skipped by _apply_stock_changes_atomic."""
     service, db = build_service()
     prescription = Prescription(
         id=uuid4(),
@@ -397,19 +418,19 @@ def test_apply_stock_changes_skips_items_without_drug():
         patient_id=uuid4(),
         status=PrescriptionStatus.VALIDATED,
     )
-    prescription.items = [
-        PrescriptionItem(
-            id=uuid4(),
-            prescription_id=prescription.id,
-            drug_id=uuid4(),
-            dosage="500mg",
-            frequency="3x daily",
-            duration="5 days",
-            quantity=1,
-        )
-    ]
-    prescription.items[0].drug = None
+    item = PrescriptionItem(
+        id=uuid4(),
+        prescription_id=prescription.id,
+        drug_id=uuid4(),
+        dosage="500mg",
+        frequency="3x daily",
+        duration="5 days",
+        quantity=1,
+    )
+    item.drug_id = None  # simulate missing drug_id
+    prescription.items = [item]
 
-    service._apply_stock_changes(prescription)
+    await service._apply_stock_changes_atomic(prescription)
 
+    db.execute.assert_not_called()
     db.add.assert_not_called()

@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.core.exceptions import (
     DispensationNotFoundException,
+    DrugNotFoundException,
     DuplicateDispensationException,
     InsufficientStockException,
     InvalidPrescriptionStateException,
@@ -16,6 +17,7 @@ from app.core.exceptions import (
     UnauthorizedException,
 )
 from app.db.models.dispensation import Dispensation, StockLog
+from app.db.models.drug import Drug
 from app.db.models.prescription import (
     Prescription,
     PrescriptionItem,
@@ -53,7 +55,7 @@ class DispensationService:
         if existing is not None:
             raise DuplicateDispensationException(prescription.id)
 
-        self._apply_stock_changes(prescription)
+        await self._apply_stock_changes_atomic(prescription)
         pharmacist = await self._get_user_by_sub(current_user.sub)
 
         prescription.status = PrescriptionStatus.DISPENSING
@@ -96,21 +98,49 @@ class DispensationService:
             selectinload(Dispensation.pharmacist),
         )
 
-    def _apply_stock_changes(self, prescription: Prescription) -> None:
+    async def _apply_stock_changes_atomic(self, prescription: Prescription) -> None:
+        """Decrement stock for each prescription item using atomic UPDATE.
+
+        Each UPDATE is a single round-trip that atomically checks availability
+        and decrements in one operation — safe under high concurrency without
+        requiring explicit row locks (SELECT FOR UPDATE).
+
+        If the WHERE clause `stock >= quantity` is not satisfied, the UPDATE
+        returns 0 rows, which we treat as InsufficientStockException.
+        """
         for item in prescription.items:
-            drug = item.drug
-            if drug is None:
+            if item.drug_id is None:
                 continue
-            if drug.stock < item.quantity:
+
+            quantity = item.quantity
+            result = await self.db.execute(
+                update(Drug)
+                .where(
+                    Drug.id == item.drug_id,
+                    Drug.stock >= quantity,
+                    Drug.deleted_at.is_(None),
+                )
+                .values(stock=Drug.stock - quantity)
+                .returning(Drug.id, Drug.name, Drug.stock)
+            )
+            row = result.fetchone()
+
+            if row is None:
+                # 0 rows updated → stock insufficient or drug missing
+                drug_result = await self.db.execute(
+                    select(Drug).where(Drug.id == item.drug_id)
+                )
+                drug = drug_result.scalar_one_or_none()
+                if drug is None:
+                    raise DrugNotFoundException(item.drug_id)
                 raise InsufficientStockException(drug.name)
 
-            stock_before = drug.stock
-            stock_after = stock_before - item.quantity
-            drug.stock = stock_after
+            drug_id, drug_name, stock_after = row
+            stock_before = stock_after + quantity
             self.db.add(
                 StockLog(
-                    drug_id=drug.id,
-                    change_amount=-item.quantity,
+                    drug_id=drug_id,
+                    change_amount=-quantity,
                     reason="dispensation",
                     reference_id=prescription.id,
                     stock_before=stock_before,
