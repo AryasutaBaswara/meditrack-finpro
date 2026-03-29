@@ -1,41 +1,66 @@
-# Supabase Row Level Security (RLS) & Table Boundaries
+# Supabase Security Architecture (MediTrack)
 
-Dokumen ini menjelaskan batas akses antara client Supabase murni dan backend FastAPI. FastAPI tetap menjadi **Source of Truth** untuk proses *write* dan *business logic*. Supabase RLS hanya digunakan secara selektif untuk read-heavy models atau edge functions.
+This document outlines the "Zero Trust" security model implemented for the MediTrack Supabase backend.
 
-## 1. Actor Matrix (Client-Side Read via Supabase/Edge)
+## 🛡️ Core Security Principles
 
-RLS diaktifkan pada tabel-tabel berikut dengan struktur pembagian peran (Role):
+1.  **FastAPI as Authority**: All business logic and mutations (Writes) are handled by the FastAPI application layer using the `service_role` key, which bypasses RLS.
+2.  **Zero Trust RLS**: Row Level Security is enabled on **EVERY** table in the `public` schema.
+3.  **Default Deny**: Tables containing sensitive internal data or audit logs have RLS enabled with **ZERO policies**, making them inaccessible to direct client queries.
+4.  **RPC as Gateway**: Complex data retrieval (Read Models) is provided through `SECURITY DEFINER` RPCs that perform explicit role and ownership validation.
+5.  **Soft Delete Protection**: All SELECT policies and RPCs filter for `deleted_at IS NULL` to prevent accessing logically deleted data.
 
-| Actor      | `prescriptions` | `patients` | `storage_files` |
-|------------|-----------------|------------|-----------------|
-| **Admin**  | Full Access (Semua resep) | Full Access (Semua pasien) | Full Access (Semua file) |
-| **Doctor** | Hanya resep yang mereka buat (`doctor_id`) | Semua Pasien (Akses view dasar klinik) | Semua File storage (butuh rujukan ke resep) |
-| **Patient**| Hanya resep diri mereka sendiri | Hanya data mereka sendiri | File yang diupload sendiri atau untuk resepnya |
-| **Pharmacist** | Melihat resep yang berstatus `validated`, `dispensing`, atau `completed` | Semua Pasien untuk view saat dispensing | Semua File storage terkait |
+---
 
-> **Catatan:** Semua *mutation* (INSERT/UPDATE/DELETE) dilakukan melalui API FastAPI yang memiliki kredensial *Service Role Key* (Melewati bypass RLS).
+## 🏗️ Access Matrix
 
-## 2. Backend-Only Tables
+### Protected Tables (RLS with Policies)
+These tables allow limited direct access via the Supabase client.
 
-Tabel-tabel di bawah ini **TIDAK TERBUKA** untuk direct Supabase Client (RLS secara default disabled / denied untuk anon/authenticated), karena berisiko tinggi / menjadi source of truth FastAPI:
+| Table | Access Level | Policy / Logic |
+| :--- | :--- | :--- |
+| `prescriptions` | Selective Read | Patient (Own), Doctor (Created), Pharmacist (Validated) |
+| `patients` | Selective Read | Patient (Self), Doctor/Pharmacist (Any) |
+| `storage_files` | Selective Read | Patient (Own/Linked), Doctor/Pharmacist (Any), Admin (All) |
+| `profiles` | Self-Read | User can see only their own profile |
+| `drugs` | Global Read | Any authenticated user can browse the catalog |
+| `doctors` | Global Read | Any authenticated user can see doctor list |
 
-1. **`users`**, **`profiles`**, **`roles`**, **`user_roles`**
-   - Berisi informasi pengguna sensitif (identity, PII) yang disinkronisasi dengan Keycloak.
-2. **`clinics`**, **`doctors`**
-   - Data administratif.
-3. **`drugs`**, **`drug_interactions`**
-   - Katalog utama sistem. Semua mutasi dilakukan oleh Admin, sedangkan client meread menggunakan Elasticsearch atau Redis Cache.
-4. **`dispensations`**
-   - Bukti otentik dispensing obat oleh Pharmacist. Harus melewati validasi kompleks FastAPI.
-5. **`stock_logs`**
-   - Log mutasi stok. Dikelola secara otoritatif oleh sistem (FastAPI).
-6. **`prescription_items`**
-   - Detail dari `prescriptions`. Bisa digabung saat di-fetch namun sebaiknya dirangkai oleh RPC atau backend response.
+### Backend-Only Tables (RLS WITHOUT Policies)
+These tables are locked down. Access is only possible via `service_role` (FastAPI) or `SECURITY DEFINER` RPCs.
 
-## 3. Pengecekan Peran (Role Checking)
+- `users` (Identity mapping handled by `current_app_user_id()`)
+- `roles` / `user_roles`
+- `dispensations`
+- `stock_logs`
+- `prescription_items` (Gated through `get_prescription_detail()` RPC)
 
-Pengecekan peran *authenticated user* dilakukan via database function:
-```sql
-public.current_user_has_role(role_name text)
-```
-Function ini memetakan relasi dari `auth.uid()` (ID Supabase request) dengan `users`, dan mencari kaitan peran-nya di tabel `roles` dan `user_roles`.
+---
+
+## ⚡ Secure RPC Read Models
+All RPCs are `SECURITY DEFINER` to allow joining restricted tables, but they implement strict manual guards.
+
+### 🔐 Privilege Hardening
+- **REVOKE FROM PUBLIC**: All RPC functions have `EXECUTE` rights revoked from `PUBLIC`.
+- **GRANT TO authenticated**: Execution is explicitly granted only to the `authenticated` and `service_role` roles.
+
+### 📝 RPC List
+1.  **`get_prescription_detail(uuid)`**
+    - **Akses**: Admin, Pharmacist, Doctor (Owner), Patient (Owner).
+    - **Data**: Prescription + Items (JSONB) + Doctor/Patient Summaries.
+2.  **`get_my_prescriptions(status?, limit, offset)`**
+    - **Akses**: Patient only (Filters by current user identity).
+    - **Data**: Paginated list of own prescriptions.
+3.  **`get_pharmacist_queue(limit, offset)`**
+    - **Akses**: Pharmacist & Admin only.
+    - **Data**: FIFO queue of `validated`/`dispensing` prescriptions.
+4.  **`get_patient_files(limit, offset)`**
+    - **Akses**: Patient (Owner) & Admin.
+    - **Data**: List of accessible storage metadata and URLs for files uploaded or linked to own prescriptions.
+
+---
+
+## 🔑 Identity Resolution
+Since authentication is handled by Keycloak, we use a custom bridge:
+- **`current_app_user_id()`**: Maps the JWT `sub` claim (Keycloak Subject) to our internal `users.id` (UUID).
+- **`current_user_has_role(name)`**: Checks if the resolved `current_app_user_id()` possesses the specified role.
