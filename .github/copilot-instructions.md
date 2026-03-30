@@ -115,7 +115,6 @@ meditrack/
 │   │   ├── requirements.txt
 │   │   └── alembic.ini
 │   └── edge-functions/
-│       ├── storage-handler/index.ts  ← Supabase Storage ops
 │       └── stock-webhook/index.ts    ← DB webhook → stock alert
 ├── automation/                       ← Playwright E2E (TypeScript)
 ├── infra/

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -16,7 +16,7 @@ from app.core.exceptions import (
     PrescriptionNotFoundException,
     UnauthorizedException,
 )
-from app.db.models.dispensation import Dispensation, StockLog
+from app.db.models.dispensation import Dispensation
 from app.db.models.drug import Drug
 from app.db.models.prescription import (
     Prescription,
@@ -113,15 +113,31 @@ class DispensationService:
                 continue
 
             quantity = item.quantity
-            result = await self.db.execute(
-                update(Drug)
-                .where(
-                    Drug.id == item.drug_id,
-                    Drug.stock >= quantity,
-                    Drug.deleted_at.is_(None),
+            # ATOMIC CONTEXT & UPDATE (Jaminan 100% data audit tidak tercecer)
+            raw_query = text(
+                """
+                WITH context AS (
+                    SELECT 
+                        set_config('app.log_reason', 'dispensation', true),
+                        set_config('app.log_reference_id', :ref_id, true)
                 )
-                .values(stock=Drug.stock - quantity)
-                .returning(Drug.id, Drug.name, Drug.stock)
+                UPDATE drugs 
+                SET stock = stock - :quantity
+                FROM context
+                WHERE id = :drug_id 
+                  AND stock >= :quantity
+                  AND deleted_at IS NULL
+                RETURNING drugs.id, drugs.name, drugs.stock;
+            """
+            )
+
+            result = await self.db.execute(
+                raw_query,
+                {
+                    "ref_id": str(prescription.id),
+                    "quantity": quantity,
+                    "drug_id": item.drug_id,
+                },
             )
             row = result.fetchone()
 
@@ -134,19 +150,6 @@ class DispensationService:
                 if drug is None:
                     raise DrugNotFoundException(item.drug_id)
                 raise InsufficientStockException(drug.name)
-
-            drug_id, drug_name, stock_after = row
-            stock_before = stock_after + quantity
-            self.db.add(
-                StockLog(
-                    drug_id=drug_id,
-                    change_amount=-quantity,
-                    reason="dispensation",
-                    reference_id=prescription.id,
-                    stock_before=stock_before,
-                    stock_after=stock_after,
-                )
-            )
 
     def _is_duplicate_dispensation_error(self, exc: IntegrityError) -> bool:
         message = str(exc).lower()
