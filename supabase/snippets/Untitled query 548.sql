@@ -1,1 +1,1 @@
-UPDATE drugs SET stock = stock + 15 WHERE name = 'Paracetamol 500mg';
+UPDATE drugs SET stock = 3 WHERE name = 'Paracetamol 500mg';

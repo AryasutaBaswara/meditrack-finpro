@@ -100,7 +100,6 @@ class DrugService:
         self.db.add(drug)
         await self.db.flush()
         await self.db.refresh(drug)
-        await self.search.index_drug(drug)
         await self._invalidate_list_cache()
         return drug
 
@@ -111,7 +110,6 @@ class DrugService:
 
         await self.db.flush()
         await self.db.refresh(drug)
-        await self.search.index_drug(drug)
         await self._invalidate_list_cache()
         return drug
 
@@ -119,7 +117,6 @@ class DrugService:
         drug = await self.get_by_id(drug_id)
         drug.deleted_at = datetime.now(UTC)
         await self.db.flush()
-        await self.search.delete_drug(drug_id)
         await self._invalidate_list_cache()
 
     async def search_autocomplete(self, query: str) -> list[DrugSearchResult]:
