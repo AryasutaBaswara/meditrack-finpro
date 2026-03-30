@@ -104,7 +104,7 @@ async def test_list_uses_search_hits_and_caches_result(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_create_indexes_drug_and_invalidates_cache():
+async def test_create_persists_drug_and_invalidates_cache():
     service, db, cache, search = build_service()
 
     async def refresh_side_effect(instance):
@@ -128,12 +128,14 @@ async def test_create_indexes_drug_and_invalidates_cache():
     drug = await service.create(data)
 
     assert drug.name == "Amoxicillin"
-    search.index_drug.assert_awaited_once_with(drug)
+    db.flush.assert_awaited_once()
     cache.delete_pattern.assert_awaited_once_with("drugs:list:*")
+    # index_drug is handled by DB triggers, not expected here
+    search.index_drug.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_update_applies_changes_and_reindexes(monkeypatch):
+async def test_update_applies_changes_and_invalidates_cache(monkeypatch):
     service, db, cache, search = build_service()
     drug = build_drug()
 
@@ -148,13 +150,15 @@ async def test_update_applies_changes_and_reindexes(monkeypatch):
 
     assert updated.stock == 3
     assert updated.manufacturer == "Updated Pharma"
-    search.index_drug.assert_awaited_once_with(drug)
+    db.flush.assert_awaited_once()
     cache.delete_pattern.assert_awaited_once_with("drugs:list:*")
+    # index_drug is handled by DB triggers, not expected here
+    search.index_drug.assert_not_awaited()
 
 
 @pytest.mark.asyncio
 async def test_delete_soft_deletes_and_invalidates(monkeypatch):
-    service, _db, cache, search = build_service()
+    service, db, cache, search = build_service()
     drug = build_drug()
 
     async def fake_get_by_id(_drug_id):
@@ -165,8 +169,10 @@ async def test_delete_soft_deletes_and_invalidates(monkeypatch):
     await service.delete(drug.id)
 
     assert drug.deleted_at is not None
-    search.delete_drug.assert_awaited_once_with(drug.id)
+    db.flush.assert_awaited_once()
     cache.delete_pattern.assert_awaited_once_with("drugs:list:*")
+    # delete_drug is handled by DB triggers, not expected here
+    search.delete_drug.assert_not_awaited()
 
 
 def test_build_list_cache_key_changes_with_query_inputs():
