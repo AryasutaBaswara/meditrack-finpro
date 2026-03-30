@@ -111,8 +111,17 @@ async def test_dispense_moves_validated_prescription_to_completed(monkeypatch):
     assert created.prescription_id == prescription.id
     assert created.pharmacist_id == pharmacist.id
     assert prescription.status == PrescriptionStatus.COMPLETED
-    stock_logs = [call.args[0] for call in db.add.call_args_list if call.args]
-    assert any(log.__class__.__name__ == "StockLog" for log in stock_logs)
+    # Verify that the atomic update with auditing context was executed
+    # We check if any execute call contains the set_config instruction
+    execute_queries = [str(call.args[0]) for call in db.execute.call_args_list]
+    assert any(
+        "set_config('app.log_reason', 'dispensation', true)" in q
+        for q in execute_queries
+    )
+    assert any(
+        "set_config('app.log_reference_id', :ref_id, true)" in q
+        for q in execute_queries
+    )
     assert result is returned_dispensation
 
 
