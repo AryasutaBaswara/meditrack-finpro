@@ -1,0 +1,43 @@
+name: CD (GitOps)
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - staging
+
+jobs:
+  update-manifest:
+    name: Update K8s Manifest
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch }}
+
+      - name: Set up Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Update Staging Manifest Image Tag
+        if: github.event.workflow_run.head_branch == 'staging'
+        run: |
+          cd infra/k8s/overlays/staging
+          kustomize edit set image ghcr.io/aryasutabaswara/meditrack-fastapi=ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${{ github.event.workflow_run.head_sha }}
+
+      - name: Commit and Push Manifest Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add infra/k8s/overlays/staging/kustomization.yaml
+          git diff --cached --quiet && exit 0
+          git commit -m "chore(gitops): update staging image tag to staging-${{ github.event.workflow_run.head_sha }}"
+          git push origin ${{ github.event.workflow_run.head_branch }}

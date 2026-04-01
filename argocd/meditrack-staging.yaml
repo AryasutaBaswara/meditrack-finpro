@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: meditrack-staging
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/AryasutaBaswara/meditrack-finpro.git
+    targetRevision: staging
+    path: infra/k8s/overlays/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: meditrack-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

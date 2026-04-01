@@ -75,7 +75,9 @@ async def sync_all_drugs():
             await bootstrap_index(es, settings.elasticsearch_index_drugs)
 
             # 2. Ambil semua obat dari DB
-            result = await session.execute(select(Drug).where(Drug.deleted_at is None))
+            result = await session.execute(
+                select(Drug).where(Drug.deleted_at.is_(None))
+            )
             drugs = result.scalars().all()
 
             if not drugs:

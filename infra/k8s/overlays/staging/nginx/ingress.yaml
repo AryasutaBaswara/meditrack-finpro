@@ -13,6 +13,6 @@ spec:
             pathType: Prefix
             backend:
               service:
-                name: fastapi
+                name: staging-fastapi
                 port:
                   number: 80

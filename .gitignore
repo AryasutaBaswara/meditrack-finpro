@@ -84,6 +84,10 @@ infra/docker/docker-compose.override.yml
 kubeconfig
 *.kubeconfig
 infra/k8s/secrets/
+infra/k8s/overlays/**/secret.env
+infra/k8s/overlays/**/secrets.env
+infra/k8s/overlays/**/fastapi/secrets.env
+infra/k8s/overlays/**/keycloak/secrets.env
 
 # ── IDEs ──────────────────────────────────────
 .vscode/settings.json

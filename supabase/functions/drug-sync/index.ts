@@ -9,9 +9,14 @@ serve(async (req) => {
     const { record, old_record, type } = payload;
 
     const drugId = type === "DELETE" ? old_record.id : record.id;
+    const updatedAt = record?.updated_at || new Date().toISOString();
+    
+    // 💡 Gunakan Unix Timestamp sebagai nomor versi eksternal untuk mencegah Race Condition
+    const version = new Date(updatedAt).getTime();
     const url = `${ES_URL}/${ES_INDEX}/_doc/${drugId}`;
+    const versionedUrl = `${url}?version_type=external&version=${version}`;
 
-    console.log(`[Drug-Sync] Event: ${type} | ID: ${drugId}`);
+    console.log(`[Drug-Sync] Event: ${type} | ID: ${drugId} | Version: ${version}`);
 
     if (type === "DELETE") {
       const res = await fetch(url, { method: "DELETE" });
@@ -31,14 +36,19 @@ serve(async (req) => {
       price: record.price,
       unit: record.unit,
       manufacturer: record.manufacturer,
-      updated_at: record.updated_at || new Date().toISOString(),
+      updated_at: updatedAt,
     };
 
-    const res = await fetch(url, {
+    const res = await fetch(versionedUrl, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+
+    if (res.status === 409) {
+      console.warn(`[Drug-Sync Warning] Conflict detected for ID ${drugId}. Older data rejected by Elasticsearch.`);
+      return new Response(JSON.stringify({ error: "Version conflict - older data rejected" }), { status: 409 });
+    }
 
     const result = await res.json();
     return new Response(JSON.stringify(result), { status: res.status });

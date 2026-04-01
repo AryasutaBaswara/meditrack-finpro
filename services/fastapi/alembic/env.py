@@ -55,6 +55,9 @@ async def run_async_migrations() -> None:
         prefix="sqlalchemy.",
         poolclass=pool.NullPool,
         future=True,
+        connect_args={
+            "prepared_statement_cache_size": 0,
+        },
     )
 
     assert isinstance(connectable, AsyncEngine)

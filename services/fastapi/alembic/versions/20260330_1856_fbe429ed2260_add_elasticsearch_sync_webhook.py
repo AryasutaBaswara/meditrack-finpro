@@ -27,18 +27,25 @@ def upgrade() -> None:
 
     # 3. Langsung buat Trigger menggunakan fungsi bawaan Supabase
     # PENTING: Semua argumen untuk fungsi trigger HARUS berupa string (pakai tanda kutip)
+    # 3. Buat Trigger hanya jika schema supabase_functions ada (Lokal/Docker)
+    # Di Supabase Cloud, trigger semacam ini biasanya dikonfigurasi via Dashboard Webhooks
     op.execute(
         """
-    CREATE TRIGGER tr_audit_drug_stock_sync
-    AFTER INSERT OR UPDATE OR DELETE ON public.drugs
-    FOR EACH ROW
-    EXECUTE FUNCTION supabase_functions.http_request(
-        'http://kong:8000/functions/v1/drug-sync', -- 1. URL Edge Function
-        'POST',                                    -- 2. Method
-        '{"Content-Type":"application/json"}',     -- 3. Headers
-        '{}',                                      -- 4. Payload ({} berarti kirim semua record bawaan)
-        '1000'                                     -- 5. Timeout (HARUS string '1000', bukan integer 1000)
-    );
+    DO $$ 
+    BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.schemata WHERE schema_name = 'supabase_functions') THEN
+            CREATE TRIGGER tr_audit_drug_stock_sync
+            AFTER INSERT OR UPDATE OR DELETE ON public.drugs
+            FOR EACH ROW
+            EXECUTE FUNCTION supabase_functions.http_request(
+                'http://kong:8000/functions/v1/drug-sync',
+                'POST',
+                '{"Content-Type":"application/json"}',
+                '{}',
+                '1000'
+            );
+        END IF;
+    END $$;
     """
     )
 

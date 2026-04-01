@@ -1,0 +1,66 @@
+{
+  "realm": "meditrack-staging",
+  "enabled": true,
+  "displayName": "MediTrack Staging",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "resetPasswordAllowed": true,
+  "accessTokenLifespan": 300,
+  "refreshTokenMaxReuse": 0,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Full system access" },
+      {
+        "name": "doctor",
+        "description": "Create prescriptions, view patients"
+      },
+      {
+        "name": "pharmacist",
+        "description": "Process dispensations, manage stock"
+      },
+      { "name": "patient", "description": "View own prescriptions only" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "meditrack-backend",
+      "name": "MediTrack Backend Staging",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "replace-with-staging-client-secret",
+      "bearerOnly": false,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "fullScopeAllowed": true,
+      "redirectUris": [
+        "http://meditrack.staging.local/*",
+        "http://localhost:8000/*"
+      ],
+      "webOrigins": ["http://meditrack.staging.local", "http://localhost:8000"],
+      "protocolMappers": [
+        {
+          "name": "realm roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "consentRequired": false,
+          "config": {
+            "multivalued": "true",
+            "userinfo.token.claim": "true",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "claim.name": "realm_access.roles",
+            "jsonType.label": "String"
+          }
+        }
+      ]
+    }
+  ]
+}
