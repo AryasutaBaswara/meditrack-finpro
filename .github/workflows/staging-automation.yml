@@ -89,7 +89,47 @@ jobs:
           "FASTAPI_PORT_FORWARD_PID=$($fastapi.Id)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "KEYCLOAK_PORT_FORWARD_PID=$($keycloak.Id)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-          Start-Sleep -Seconds 8
+      - name: Validate smoke secrets
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)) {
+            Write-Error 'Missing GitHub secret STAGING_KEYCLOAK_CLIENT_SECRET'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_DOCTOR_PASSWORD)) {
+            Write-Error 'Missing GitHub secret STAGING_DOCTOR_PASSWORD'
+          }
+
+      - name: Wait for staging port-forwards
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Wait-HttpReady {
+            param(
+              [string]$Name,
+              [string]$Url,
+              [int]$Attempts = 20
+            )
+
+            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+              try {
+                $response = Invoke-WebRequest -Uri $Url -UseBasicParsing -TimeoutSec 5
+                Write-Host "$Name ready with status $($response.StatusCode) at $Url"
+                return
+              }
+              catch {
+                Write-Host "Attempt $attempt: waiting for $Name at $Url"
+                Start-Sleep -Seconds 3
+              }
+            }
+
+            Write-Error "$Name did not become ready at $Url"
+          }
+
+          Wait-HttpReady -Name 'FastAPI health endpoint' -Url "$($env:MEDITRACK_BASE_URL)/api/v1/health"
+          Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)"
 
       - name: Set up Node.js
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
@@ -142,6 +182,17 @@ jobs:
             automation/locust-report_stats.csv
             automation/locust-report_failures.csv
             automation/locust-report_exceptions.csv
+
+      - name: Upload port-forward logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-port-forward-logs
+          path: |
+            ${{ runner.temp }}/staging-fastapi-port-forward.out.log
+            ${{ runner.temp }}/staging-fastapi-port-forward.err.log
+            ${{ runner.temp }}/staging-keycloak-port-forward.out.log
+            ${{ runner.temp }}/staging-keycloak-port-forward.err.log
 
       - name: Stop staging port-forwards
         if: always()
