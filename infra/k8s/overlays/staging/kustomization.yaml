@@ -12,6 +12,10 @@ resources:
   - fastapi/reindex-cronjob.yaml
   - nginx/ingress.yaml
 
+patchesStrategicMerge:
+  - fastapi/deployment-patch.yaml
+  - fastapi/reindex-cronjob-patch.yaml
+
 configMapGenerator:
   - name: keycloak-realm-import
     files:

@@ -1,0 +1,14 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fastapi
+spec:
+  template:
+    spec:
+      containers:
+        - name: fastapi
+          envFrom:
+            - configMapRef:
+                name: staging-fastapi-config
+            - secretRef:
+                name: staging-fastapi-secrets
