@@ -35,8 +35,12 @@ jobs:
       MEDITRACK_KEYCLOAK_REALM: ${{ vars.STAGING_KEYCLOAK_REALM || 'meditrack-staging' }}
       MEDITRACK_KEYCLOAK_CLIENT_ID: ${{ vars.STAGING_KEYCLOAK_CLIENT_ID || 'meditrack-backend' }}
       MEDITRACK_DOCTOR_USERNAME: ${{ vars.STAGING_DOCTOR_USERNAME || 'doctor_user' }}
+      MEDITRACK_PHARMACIST_USERNAME: ${{ vars.STAGING_PHARMACIST_USERNAME || 'pharmacist_stage' }}
+      MEDITRACK_PATIENT_USERNAME: ${{ vars.STAGING_PATIENT_USERNAME || 'patient_stage' }}
       MEDITRACK_KEYCLOAK_CLIENT_SECRET: ${{ secrets.STAGING_KEYCLOAK_CLIENT_SECRET }}
       MEDITRACK_DOCTOR_PASSWORD: ${{ secrets.STAGING_DOCTOR_PASSWORD }}
+      MEDITRACK_PHARMACIST_PASSWORD: ${{ secrets.STAGING_PHARMACIST_PASSWORD }}
+      MEDITRACK_PATIENT_PASSWORD: ${{ secrets.STAGING_PATIENT_PASSWORD }}
 
     steps:
       - name: Checkout repository
@@ -107,6 +111,24 @@ jobs:
 
           Write-Error "Timed out waiting for staging deployment image $expectedImage"
 
+      - name: Resolve smoke secrets
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)) {
+            $encodedSecret = kubectl get secret staging-fastapi-secrets -n meditrack-staging -o jsonpath='{.data.KEYCLOAK_CLIENT_SECRET}' 2>&1
+            if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($encodedSecret)) {
+              $decodedSecret = [System.Text.Encoding]::UTF8.GetString(
+                [System.Convert]::FromBase64String($encodedSecret)
+              )
+              "MEDITRACK_KEYCLOAK_CLIENT_SECRET=$decodedSecret" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+              $env:MEDITRACK_KEYCLOAK_CLIENT_SECRET = $decodedSecret
+              Write-Host 'Resolved Keycloak client secret from staging-fastapi-secrets'
+            }
+          }
+
       - name: Start staging port-forwards
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
@@ -132,6 +154,12 @@ jobs:
           }
           if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_DOCTOR_PASSWORD)) {
             Write-Error 'Missing GitHub secret STAGING_DOCTOR_PASSWORD'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_PHARMACIST_PASSWORD)) {
+            Write-Error 'Missing GitHub secret STAGING_PHARMACIST_PASSWORD'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_PATIENT_PASSWORD)) {
+            Write-Error 'Missing GitHub secret STAGING_PATIENT_PASSWORD'
           }
 
       - name: Wait for staging port-forwards

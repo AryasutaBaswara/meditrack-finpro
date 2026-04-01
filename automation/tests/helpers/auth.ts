@@ -5,7 +5,7 @@ import {
   Playwright,
 } from "@playwright/test";
 
-type Role = "doctor";
+type Role = "doctor" | "pharmacist" | "patient";
 
 type RuntimeConfig = {
   baseUrl: string;
@@ -15,6 +15,10 @@ type RuntimeConfig = {
   keycloakClientSecret: string;
   doctorUsername: string;
   doctorPassword: string;
+  pharmacistUsername: string;
+  pharmacistPassword: string;
+  patientUsername: string;
+  patientPassword: string;
 };
 
 type Credentials = {
@@ -51,6 +55,13 @@ export function getRuntimeConfig(): RuntimeConfig {
     keycloakClientSecret: requireEnv("MEDITRACK_KEYCLOAK_CLIENT_SECRET"),
     doctorUsername: requireEnv("MEDITRACK_DOCTOR_USERNAME", "doctor_user"),
     doctorPassword: requireEnv("MEDITRACK_DOCTOR_PASSWORD"),
+    pharmacistUsername: requireEnv(
+      "MEDITRACK_PHARMACIST_USERNAME",
+      "pharmacist_stage",
+    ),
+    pharmacistPassword: requireEnv("MEDITRACK_PHARMACIST_PASSWORD"),
+    patientUsername: requireEnv("MEDITRACK_PATIENT_USERNAME", "patient_stage"),
+    patientPassword: requireEnv("MEDITRACK_PATIENT_PASSWORD"),
   };
 }
 
@@ -94,6 +105,18 @@ export async function createAuthorizedContext(
       credentials = {
         username: config.doctorUsername,
         password: config.doctorPassword,
+      };
+      break;
+    case "pharmacist":
+      credentials = {
+        username: config.pharmacistUsername,
+        password: config.pharmacistPassword,
+      };
+      break;
+    case "patient":
+      credentials = {
+        username: config.patientUsername,
+        password: config.patientPassword,
       };
       break;
     default:
