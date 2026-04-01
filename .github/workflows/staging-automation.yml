@@ -6,7 +6,11 @@ on:
       - staging
     paths:
       - .github/workflows/staging-automation.yml
+      - .github/workflows/cd.yml
       - automation/**
+      - services/fastapi/**
+      - infra/k8s/overlays/staging/fastapi/**
+      - infra/k8s/overlays/staging/nginx/**
   workflow_dispatch:
     inputs:
       suite:
@@ -73,6 +77,34 @@ jobs:
           minikube update-context -p minikube
           kubectl config use-context minikube
           kubectl get namespace meditrack-staging
+
+      - name: Wait for deployed staging image
+        if: ${{ github.event_name == 'push' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $shortSha = '${{ github.sha }}'.Substring(0, 7)
+          $expectedImage = "ghcr.io/aryasutabaswara/meditrack-fastapi:staging-$shortSha"
+          Write-Host "Waiting for staging deployment image: $expectedImage"
+
+          for ($attempt = 1; $attempt -le 90; $attempt++) {
+            $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}' 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host $currentImage
+              Write-Host "Attempt $attempt: unable to read current deployment image yet"
+            }
+            elseif ($currentImage -eq $expectedImage) {
+              Write-Host "Staging deployment now runs $currentImage"
+              exit 0
+            }
+            else {
+              Write-Host "Attempt $attempt: current image is $currentImage"
+            }
+
+            Start-Sleep -Seconds 10
+          }
+
+          Write-Error "Timed out waiting for staging deployment image $expectedImage"
 
       - name: Start staging port-forwards
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
