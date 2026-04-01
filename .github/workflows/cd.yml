@@ -49,51 +49,60 @@ jobs:
           ref: staging
 
       - name: Wait for ArgoCD sync target revision
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          target_sha="${{ github.sha }}"
-          expected_tag="ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${target_sha}"
-          for attempt in $(seq 1 30); do
-            current_image=$(kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}')
-            if [[ "$current_image" == "$expected_tag" ]]; then
-              echo "Staging deployment now uses $current_image"
+          $ErrorActionPreference = 'Stop'
+          $targetSha = '${{ github.sha }}'
+          $expectedTag = "ghcr.io/aryasutabaswara/meditrack-fastapi:staging-$targetSha"
+          for ($attempt = 1; $attempt -le 30; $attempt++) {
+            $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}'
+            if ($currentImage -eq $expectedTag) {
+              Write-Host "Staging deployment now uses $currentImage"
               exit 0
-            fi
-            echo "Attempt $attempt: current image is $current_image, waiting for $expected_tag"
-            sleep 10
-          done
-          echo "Timed out waiting for ArgoCD to deploy $expected_tag"
-          exit 1
+            }
+            Write-Host "Attempt $attempt`: current image is $currentImage, waiting for $expectedTag"
+            Start-Sleep -Seconds 10
+          }
+          Write-Error "Timed out waiting for ArgoCD to deploy $expectedTag"
 
       - name: Verify staging rollouts
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
           kubectl rollout status deployment/staging-fastapi -n meditrack-staging --timeout=300s
           kubectl rollout status deployment/staging-keycloak -n meditrack-staging --timeout=300s
           kubectl rollout status deployment/staging-elasticsearch -n meditrack-staging --timeout=300s
           kubectl rollout status deployment/staging-redis -n meditrack-staging --timeout=300s
 
       - name: Verify staging health endpoint
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
-          kubectl port-forward -n meditrack-staging svc/staging-fastapi 18000:80 >/tmp/meditrack-fastapi-port-forward.log 2>&1 &
-          pf_pid=$!
-          trap 'kill $pf_pid' EXIT
-          for attempt in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:18000/api/v1/health | grep -q '"status":"ok"'; then
-              exit 0
-            fi
-            sleep 3
-          done
-          echo "Staging health endpoint did not become ready"
-          cat /tmp/meditrack-fastapi-port-forward.log || true
-          exit 1
+          $ErrorActionPreference = 'Stop'
+          $logPath = Join-Path $env:RUNNER_TEMP 'meditrack-fastapi-port-forward.log'
+          $pfProcess = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $logPath -RedirectStandardError $logPath -PassThru -WindowStyle Hidden
+          try {
+            for ($attempt = 1; $attempt -le 20; $attempt++) {
+              try {
+                $response = Invoke-WebRequest -Uri 'http://127.0.0.1:18000/api/v1/health' -UseBasicParsing -TimeoutSec 5
+                if ($response.Content -match '"status":"ok"') {
+                  exit 0
+                }
+              } catch {
+              }
+              Start-Sleep -Seconds 3
+            }
+            Write-Host 'Staging health endpoint did not become ready'
+            if (Test-Path $logPath) { Get-Content $logPath }
+            exit 1
+          }
+          finally {
+            if ($pfProcess -and -not $pfProcess.HasExited) {
+              Stop-Process -Id $pfProcess.Id -Force
+            }
+          }
 
       - name: Verify reindex cronjob exists
-        shell: bash
+        shell: pwsh
         run: |
-          set -euo pipefail
+          $ErrorActionPreference = 'Stop'
           kubectl get cronjob staging-fastapi-reindex -n meditrack-staging
