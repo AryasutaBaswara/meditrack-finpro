@@ -42,6 +42,9 @@ jobs:
     name: Verify Staging
     runs-on: self-hosted
     needs: update-manifest
+    env:
+      STAGING_KUBECONFIG_PATH: ${{ vars.STAGING_KUBECONFIG_PATH }}
+      STAGING_MINIKUBE_HOME: ${{ vars.STAGING_MINIKUBE_HOME }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -55,6 +58,8 @@ jobs:
           echo RUNNER_ARCH=%RUNNER_ARCH%
           echo USERPROFILE=%USERPROFILE%
           echo KUBECONFIG=%KUBECONFIG%
+          echo STAGING_KUBECONFIG_PATH=%STAGING_KUBECONFIG_PATH%
+          echo STAGING_MINIKUBE_HOME=%STAGING_MINIKUBE_HOME%
           where powershell
           where kubectl
           where minikube
@@ -64,20 +69,35 @@ jobs:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
-          $kubeDir = Join-Path $env:USERPROFILE '.kube'
-          $kubeConfigPath = Join-Path $kubeDir 'config'
+          $kubeConfigPath = $env:STAGING_KUBECONFIG_PATH
+          if ([string]::IsNullOrWhiteSpace($kubeConfigPath)) {
+            $kubeDir = Join-Path $env:USERPROFILE '.kube'
+            $kubeConfigPath = Join-Path $kubeDir 'config'
+          } else {
+            $kubeDir = Split-Path -Parent $kubeConfigPath
+          }
 
           New-Item -ItemType Directory -Force -Path $kubeDir | Out-Null
           "KUBECONFIG=$kubeConfigPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           $env:KUBECONFIG = $kubeConfigPath
 
+          if (-not [string]::IsNullOrWhiteSpace($env:STAGING_MINIKUBE_HOME)) {
+            "MINIKUBE_HOME=$($env:STAGING_MINIKUBE_HOME)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            $env:MINIKUBE_HOME = $env:STAGING_MINIKUBE_HOME
+          }
+
           Write-Host "Using kubeconfig: $kubeConfigPath"
+          if (-not [string]::IsNullOrWhiteSpace($env:MINIKUBE_HOME)) {
+            Write-Host "Using MINIKUBE_HOME: $($env:MINIKUBE_HOME)"
+          }
           if (Test-Path $kubeConfigPath) {
             Write-Host 'Existing kubeconfig found'
           } else {
             Write-Host 'No kubeconfig found yet, minikube will create one'
           }
 
+          $profileList = minikube profile list 2>&1
+          Write-Host $profileList
           minikube update-context -p minikube
           kubectl config use-context minikube
           kubectl config current-context
