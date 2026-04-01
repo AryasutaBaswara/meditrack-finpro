@@ -1,6 +1,12 @@
 name: Staging Automation
 
 on:
+  push:
+    branches:
+      - staging
+    paths:
+      - .github/workflows/staging-automation.yml
+      - automation/**
   workflow_dispatch:
     inputs:
       suite:
