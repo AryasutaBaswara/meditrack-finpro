@@ -56,6 +56,31 @@ jobs:
           where powershell
           ver
 
+      - name: Verify kubectl connectivity
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host "Current kubectl context:"
+          kubectl config current-context
+
+          Write-Host "Checking cluster access..."
+          $clusterInfo = kubectl cluster-info 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host $clusterInfo
+            Write-Error 'kubectl cluster-info failed on the self-hosted runner'
+          }
+          if (($clusterInfo | Out-String) -match 'Authentication required|/login\?from=|Forbidden') {
+            Write-Host $clusterInfo
+            Write-Error 'kubectl is pointing at an authenticated web endpoint instead of the Kubernetes API server'
+          }
+
+          Write-Host "Checking namespace access..."
+          $nsCheck = kubectl get namespace meditrack-staging 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host $nsCheck
+            Write-Error 'kubectl cannot access namespace meditrack-staging from the self-hosted runner'
+          }
+
       - name: Wait for ArgoCD sync target revision
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
@@ -63,7 +88,15 @@ jobs:
           $targetSha = '${{ github.sha }}'
           $expectedTag = "ghcr.io/aryasutabaswara/meditrack-fastapi:staging-$targetSha"
           for ($attempt = 1; $attempt -le 30; $attempt++) {
-            $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}'
+            $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}' 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host $currentImage
+              Write-Error 'kubectl failed while checking the staging-fastapi image'
+            }
+            if (($currentImage | Out-String) -match 'Authentication required|/login\?from=|Forbidden') {
+              Write-Host $currentImage
+              Write-Error 'kubectl request was redirected to a login page; verify the runner kubeconfig/context'
+            }
             if ($currentImage -eq $expectedTag) {
               Write-Host "Staging deployment now uses $currentImage"
               exit 0
