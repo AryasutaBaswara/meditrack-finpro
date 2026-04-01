@@ -4,32 +4,32 @@ kind: Kustomization
 namespace: meditrack-staging
 
 resources:
-- ../../base/fastapi
-- ../../base/redis
-- ../../base/elasticsearch
-- ../../base/keycloak
-- fastapi/configmap.yaml
-- fastapi/reindex-cronjob.yaml
-- nginx/ingress.yaml
+  - ../../base/fastapi
+  - ../../base/redis
+  - ../../base/elasticsearch
+  - ../../base/keycloak
+  - fastapi/configmap.yaml
+  - fastapi/reindex-cronjob.yaml
+  - nginx/ingress.yaml
 
 patchesStrategicMerge:
-- fastapi/deployment-patch.yaml
-- fastapi/reindex-cronjob-patch.yaml
+  - fastapi/deployment-patch.yaml
+  - fastapi/reindex-cronjob-patch.yaml
 
 configMapGenerator:
-- files:
-  - keycloak/meditrack-staging-realm.json
-  name: keycloak-realm-import
+  - files:
+      - keycloak/meditrack-staging-realm.json
+    name: keycloak-realm-import
 generatorOptions:
   disableNameSuffixHash: true
 
 namePrefix: staging-
 labels:
-- includeSelectors: true
-  pairs:
-    variant: staging
+  - includeSelectors: true
+    pairs:
+      variant: staging
 
 images:
-- name: ghcr.io/aryasutabaswara/meditrack-fastapi
-  newName: ghcr.io/aryasutabaswara/meditrack-fastapi
-  newTag: staging-ef75c1a
+  - name: ghcr.io/aryasutabaswara/meditrack-fastapi
+    newName: ghcr.io/aryasutabaswara/meditrack-fastapi
+    newTag: staging-ef75c1a
