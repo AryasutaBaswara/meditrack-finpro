@@ -91,14 +91,14 @@ jobs:
             $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}' 2>&1
             if ($LASTEXITCODE -ne 0) {
               Write-Host $currentImage
-              Write-Host "Attempt $attempt: unable to read current deployment image yet"
+                Write-Host ("Attempt {0}: unable to read current deployment image yet" -f $attempt)
             }
             elseif ($currentImage -eq $expectedImage) {
               Write-Host "Staging deployment now runs $currentImage"
               exit 0
             }
             else {
-              Write-Host "Attempt $attempt: current image is $currentImage"
+                Write-Host ("Attempt {0}: current image is {1}" -f $attempt, $currentImage)
             }
 
             Start-Sleep -Seconds 10
@@ -152,7 +152,7 @@ jobs:
                 return
               }
               catch {
-                Write-Host "Attempt $attempt: waiting for $Name at $Url"
+                  Write-Host ("Attempt {0}: waiting for {1} at {2}" -f $attempt, $Name, $Url)
                 Start-Sleep -Seconds 3
               }
             }
