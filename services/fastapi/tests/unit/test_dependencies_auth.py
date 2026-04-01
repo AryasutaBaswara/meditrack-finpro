@@ -8,7 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from jose import JWTError
 
 from app.api.v1 import dependencies
-from app.core.exceptions import UnauthorizedException
+from app.core.exceptions import AuthenticationException, UnauthorizedException
 from app.models.auth import TokenData
 
 
@@ -47,7 +47,7 @@ def test_extract_token_data_returns_token_data():
     ],
 )
 def test_extract_token_data_rejects_invalid_claims(claims, message):
-    with pytest.raises(UnauthorizedException, match=message):
+    with pytest.raises(AuthenticationException, match=message):
         dependencies._extract_token_data(claims)
 
 
@@ -68,7 +68,7 @@ def test_resolve_signing_key_rejects_invalid_header():
         "app.api.v1.dependencies.jwt.get_unverified_header",
         side_effect=JWTError("bad header"),
     ):
-        with pytest.raises(UnauthorizedException, match="Invalid token header"):
+        with pytest.raises(AuthenticationException, match="Invalid token header"):
             dependencies._resolve_signing_key("token", {"keys": []})
 
 
@@ -78,7 +78,7 @@ def test_resolve_signing_key_rejects_missing_kid():
         return_value={"kid": "missing"},
     ):
         with pytest.raises(
-            UnauthorizedException, match="Unable to find a matching signing key"
+            AuthenticationException, match="Unable to find a matching signing key"
         ):
             dependencies._resolve_signing_key("token", {"keys": [{"kid": "other"}]})
 
@@ -86,7 +86,7 @@ def test_resolve_signing_key_rejects_missing_kid():
 @pytest.mark.asyncio
 async def test_get_current_user_requires_credentials():
     with pytest.raises(
-        UnauthorizedException, match="Authentication credentials were not provided"
+        AuthenticationException, match="Authentication credentials were not provided"
     ):
         await dependencies.get_current_user(None)
 
@@ -100,7 +100,8 @@ async def test_get_current_user_maps_http_error_from_jwks_fetch():
         new=AsyncMock(side_effect=httpx.HTTPError("boom")),
     ):
         with pytest.raises(
-            UnauthorizedException, match="Unable to retrieve JWKS for token validation"
+            AuthenticationException,
+            match="Unable to retrieve JWKS for token validation",
         ):
             await dependencies.get_current_user(token)
 
@@ -115,7 +116,7 @@ async def test_get_current_user_maps_jwt_error():
         "app.api.v1.dependencies._resolve_signing_key",
         side_effect=JWTError("bad token"),
     ):
-        with pytest.raises(UnauthorizedException, match="Invalid or expired token"):
+        with pytest.raises(AuthenticationException, match="Invalid or expired token"):
             await dependencies.get_current_user(token)
 
 
@@ -164,7 +165,9 @@ async def test_get_current_db_user_raises_when_missing():
         return_value=Mock(scalar_one_or_none=Mock(return_value=None))
     )
 
-    with pytest.raises(UnauthorizedException, match="Authenticated user was not found"):
+    with pytest.raises(
+        AuthenticationException, match="Authenticated user was not found"
+    ):
         await dependencies.get_current_db_user(
             TokenData(sub="user-1", email="user@example.com", roles=["doctor"]),
             db,
