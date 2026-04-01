@@ -111,24 +111,6 @@ jobs:
 
           Write-Error "Timed out waiting for staging deployment image $expectedImage"
 
-      - name: Resolve smoke secrets
-        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)) {
-            $encodedSecret = kubectl get secret staging-fastapi-secrets -n meditrack-staging -o jsonpath='{.data.KEYCLOAK_CLIENT_SECRET}' 2>&1
-            if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($encodedSecret)) {
-              $decodedSecret = [System.Text.Encoding]::UTF8.GetString(
-                [System.Convert]::FromBase64String($encodedSecret)
-              )
-              "MEDITRACK_KEYCLOAK_CLIENT_SECRET=$decodedSecret" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-              $env:MEDITRACK_KEYCLOAK_CLIENT_SECRET = $decodedSecret
-              Write-Host 'Resolved Keycloak client secret from staging-fastapi-secrets'
-            }
-          }
-
       - name: Start staging port-forwards
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
@@ -149,8 +131,34 @@ jobs:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
-          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)) {
-            Write-Error 'Missing GitHub secret STAGING_KEYCLOAK_CLIENT_SECRET'
+
+          function Resolve-KeycloakClientSecret {
+            if (-not [string]::IsNullOrWhiteSpace($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)) {
+              return $env:MEDITRACK_KEYCLOAK_CLIENT_SECRET
+            }
+
+            $encodedSecret = kubectl get secret staging-fastapi-secrets -n meditrack-staging -o jsonpath='{.data.KEYCLOAK_CLIENT_SECRET}' 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host $encodedSecret
+              return $null
+            }
+            if ([string]::IsNullOrWhiteSpace($encodedSecret)) {
+              return $null
+            }
+
+            $decodedSecret = [System.Text.Encoding]::UTF8.GetString(
+              [System.Convert]::FromBase64String($encodedSecret)
+            )
+            $env:MEDITRACK_KEYCLOAK_CLIENT_SECRET = $decodedSecret
+            return $decodedSecret
+          }
+
+          $resolvedKeycloakSecret = Resolve-KeycloakClientSecret
+          if ([string]::IsNullOrWhiteSpace($resolvedKeycloakSecret)) {
+            Write-Error 'Missing Keycloak client secret. Set STAGING_KEYCLOAK_CLIENT_SECRET in GitHub Environment staging or populate KEYCLOAK_CLIENT_SECRET in Kubernetes secret staging-fastapi-secrets.'
+          }
+          if ($resolvedKeycloakSecret -eq 'replace-with-staging-client-secret') {
+            Write-Error 'KEYCLOAK_CLIENT_SECRET in Kubernetes secret staging-fastapi-secrets is still a placeholder. Replace it with the real meditrack-backend client secret from the staging Keycloak realm.'
           }
           if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_DOCTOR_PASSWORD)) {
             Write-Error 'Missing GitHub secret STAGING_DOCTOR_PASSWORD'
