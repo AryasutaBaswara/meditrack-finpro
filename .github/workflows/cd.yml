@@ -53,8 +53,34 @@ jobs:
         run: |
           echo RUNNER_OS=%RUNNER_OS%
           echo RUNNER_ARCH=%RUNNER_ARCH%
+          echo USERPROFILE=%USERPROFILE%
+          echo KUBECONFIG=%KUBECONFIG%
           where powershell
+          where kubectl
+          where minikube
           ver
+
+      - name: Bootstrap minikube context
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $kubeDir = Join-Path $env:USERPROFILE '.kube'
+          $kubeConfigPath = Join-Path $kubeDir 'config'
+
+          New-Item -ItemType Directory -Force -Path $kubeDir | Out-Null
+          "KUBECONFIG=$kubeConfigPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $env:KUBECONFIG = $kubeConfigPath
+
+          Write-Host "Using kubeconfig: $kubeConfigPath"
+          if (Test-Path $kubeConfigPath) {
+            Write-Host 'Existing kubeconfig found'
+          } else {
+            Write-Host 'No kubeconfig found yet, minikube will create one'
+          }
+
+          minikube update-context -p minikube
+          kubectl config use-context minikube
+          kubectl config current-context
 
       - name: Verify kubectl connectivity
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
