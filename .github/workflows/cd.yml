@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - staging
+    paths-ignore:
+      - infra/k8s/overlays/staging/kustomization.yaml
   workflow_dispatch:
 
 concurrency:
