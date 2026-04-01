@@ -26,6 +26,7 @@ jobs:
   staging-automation:
     name: Run staging automation
     runs-on: self-hosted
+    environment: staging
     env:
       STAGING_KUBECONFIG_PATH: ${{ vars.STAGING_KUBECONFIG_PATH }}
       STAGING_MINIKUBE_HOME: ${{ vars.STAGING_MINIKUBE_HOME }}
