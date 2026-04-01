@@ -190,8 +190,9 @@ jobs:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
-          $logPath = Join-Path $env:RUNNER_TEMP 'meditrack-fastapi-port-forward.log'
-          $pfProcess = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $logPath -RedirectStandardError $logPath -PassThru -WindowStyle Hidden
+          $stdoutLogPath = Join-Path $env:RUNNER_TEMP 'meditrack-fastapi-port-forward.out.log'
+          $stderrLogPath = Join-Path $env:RUNNER_TEMP 'meditrack-fastapi-port-forward.err.log'
+          $pfProcess = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $stdoutLogPath -RedirectStandardError $stderrLogPath -PassThru -WindowStyle Hidden
           try {
             for ($attempt = 1; $attempt -le 20; $attempt++) {
               try {
@@ -204,7 +205,8 @@ jobs:
               Start-Sleep -Seconds 3
             }
             Write-Host 'Staging health endpoint did not become ready'
-            if (Test-Path $logPath) { Get-Content $logPath }
+            if (Test-Path $stdoutLogPath) { Get-Content $stdoutLogPath }
+            if (Test-Path $stderrLogPath) { Get-Content $stderrLogPath }
             exit 1
           }
           finally {
