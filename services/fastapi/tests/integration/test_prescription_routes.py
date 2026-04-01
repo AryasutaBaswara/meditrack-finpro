@@ -168,7 +168,7 @@ async def test_create_prescription_rejects_non_doctor(client: AsyncClient):
     assert response.status_code == 403
     body = response.json()
     assert body["data"] is None
-    assert body["error"]["code"] == "UNAUTHORIZED"
+    assert body["error"]["code"] == "FORBIDDEN"
 
 
 @pytest.mark.asyncio

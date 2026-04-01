@@ -1,11 +1,12 @@
 import asyncio
 import logging
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select
 from elasticsearch import AsyncElasticsearch
 
 from app.core.config import settings
+from app.db.session import create_database_engine
 from app.db.models.drug import Drug
 from app.services.search_service import SearchService
 
@@ -63,7 +64,7 @@ async def bootstrap_index(es: AsyncElasticsearch, index_name: str):
 async def sync_all_drugs():
     """Initial Sync: Memindahkan semua data dari Postgres ke Elasticsearch."""
 
-    engine = create_async_engine(settings.database_url)
+    engine = create_database_engine()
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     es = AsyncElasticsearch(settings.elasticsearch_url)

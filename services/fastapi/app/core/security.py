@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 
 from app.api.v1.dependencies import TokenData
 from app.core.config import settings
-from app.core.exceptions import UnauthorizedException
+from app.core.exceptions import AuthenticationException
 
 _JWKS_CACHE_TTL = 300
 _jwks_cache: dict[str, Any] = {"keys": [], "expires_at": 0.0}
@@ -38,13 +38,13 @@ async def fetch_jwks() -> dict[str, Any]:
                 response.raise_for_status()
                 jwks = response.json()
         except httpx.HTTPError as exc:
-            raise UnauthorizedException(
+            raise AuthenticationException(
                 "Unable to retrieve JWKS for token validation"
             ) from exc
 
         keys = jwks.get("keys")
         if not isinstance(keys, list) or not keys:
-            raise UnauthorizedException("JWKS payload is invalid")
+            raise AuthenticationException("JWKS payload is invalid")
 
         _jwks_cache["keys"] = keys
         _jwks_cache["expires_at"] = time.monotonic() + _JWKS_CACHE_TTL
@@ -55,22 +55,22 @@ def _get_signing_key(token: str, jwks: dict[str, Any]) -> dict[str, Any]:
     try:
         headers = jwt.get_unverified_header(token)
     except JWTError as exc:
-        raise UnauthorizedException("Invalid token header") from exc
+        raise AuthenticationException("Invalid token header") from exc
 
     kid = headers.get("kid")
     if not isinstance(kid, str) or not kid:
-        raise UnauthorizedException("Token header is missing kid")
+        raise AuthenticationException("Token header is missing kid")
 
     for key in jwks.get("keys", []):
         if isinstance(key, dict) and key.get("kid") == kid:
             return key
 
-    raise UnauthorizedException("Unable to find a matching signing key")
+    raise AuthenticationException("Unable to find a matching signing key")
 
 
 async def decode_token(token: str) -> dict[str, Any]:
     if not token:
-        raise UnauthorizedException("Authentication token is missing")
+        raise AuthenticationException("Authentication token is missing")
 
     try:
         jwks = await fetch_jwks()
@@ -81,13 +81,13 @@ async def decode_token(token: str) -> dict[str, Any]:
             algorithms=["RS256"],
             audience=settings.keycloak_client_id,
         )
-    except UnauthorizedException:
+    except AuthenticationException:
         raise
     except JWTError as exc:
-        raise UnauthorizedException("Invalid or expired token") from exc
+        raise AuthenticationException("Invalid or expired token") from exc
 
     if not isinstance(payload, dict):
-        raise UnauthorizedException("Token payload is invalid")
+        raise AuthenticationException("Token payload is invalid")
 
     return payload
 
@@ -99,11 +99,11 @@ def extract_token_data(payload: dict[str, Any]) -> TokenData:
     roles = realm_access.get("roles", []) if isinstance(realm_access, dict) else []
 
     if not isinstance(sub, str) or not sub:
-        raise UnauthorizedException("Token subject is missing")
+        raise AuthenticationException("Token subject is missing")
     if not isinstance(email, str) or not email:
-        raise UnauthorizedException("Token email is missing")
+        raise AuthenticationException("Token email is missing")
     if not isinstance(roles, list) or any(not isinstance(role, str) for role in roles):
-        raise UnauthorizedException("Token roles are invalid")
+        raise AuthenticationException("Token roles are invalid")
 
     filtered_roles = [role for role in roles if not _is_internal_role(role)]
 

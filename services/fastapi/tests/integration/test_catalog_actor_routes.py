@@ -234,6 +234,14 @@ async def test_list_drugs_returns_paginated_envelope(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_list_drugs_requires_authentication(client: AsyncClient):
+    response = await client.get("/api/v1/drugs?page=1&per_page=20")
+
+    assert response.status_code == 401
+    assert response.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+@pytest.mark.asyncio
 async def test_create_drug_requires_admin_or_pharmacist(client: AsyncClient):
     app.dependency_overrides[get_current_active_user] = override_current_user("patient")
 
@@ -252,7 +260,7 @@ async def test_create_drug_requires_admin_or_pharmacist(client: AsyncClient):
     )
 
     assert response.status_code == 403
-    assert response.json()["error"]["code"] == "UNAUTHORIZED"
+    assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
 @pytest.mark.asyncio
@@ -278,7 +286,7 @@ async def test_search_drugs_requires_doctor_role(client: AsyncClient):
     response = await client.get("/api/v1/drugs/search?q=amox")
 
     assert response.status_code == 403
-    assert response.json()["error"]["code"] == "UNAUTHORIZED"
+    assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
 @pytest.mark.asyncio
@@ -311,7 +319,7 @@ async def test_create_patient_requires_admin(client: AsyncClient):
     )
 
     assert response.status_code == 403
-    assert response.json()["error"]["code"] == "UNAUTHORIZED"
+    assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
 @pytest.mark.asyncio
@@ -337,7 +345,7 @@ async def test_list_doctors_requires_admin(client: AsyncClient):
     response = await client.get("/api/v1/doctors?page=1&per_page=20")
 
     assert response.status_code == 403
-    assert response.json()["error"]["code"] == "UNAUTHORIZED"
+    assert response.json()["error"]["code"] == "FORBIDDEN"
 
 
 @pytest.mark.asyncio

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
@@ -12,11 +13,30 @@ from sqlalchemy.ext.asyncio import (
 
 from app.core.config import settings
 
-engine: AsyncEngine = create_async_engine(
-    settings.database_url,
+ASYNC_PGBOUNCER_CONNECT_ARGS = {
+    "prepared_statement_cache_size": 0,
+}
+
+
+def create_database_engine(
+    database_url: str | None = None, **kwargs: Any
+) -> AsyncEngine:
+    connect_args = dict(ASYNC_PGBOUNCER_CONNECT_ARGS)
+    user_connect_args = kwargs.pop("connect_args", None)
+    if user_connect_args:
+        connect_args.update(user_connect_args)
+
+    return create_async_engine(
+        database_url or settings.database_url,
+        pool_pre_ping=True,
+        connect_args=connect_args,
+        **kwargs,
+    )
+
+
+engine: AsyncEngine = create_database_engine(
     pool_size=10,
     max_overflow=20,
-    pool_pre_ping=True,
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)

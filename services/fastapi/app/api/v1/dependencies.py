@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from supabase import Client
 
 from app.core.config import settings
-from app.core.exceptions import UnauthorizedException
+from app.core.exceptions import AuthenticationException, UnauthorizedException
 from app.db.models.user import User
 from app.models.auth import TokenData
 from app.services.ai_service import AIService
@@ -171,14 +171,14 @@ def _resolve_signing_key(token: str, jwks: dict[str, Any]) -> dict[str, Any]:
     try:
         headers = jwt.get_unverified_header(token)
     except JWTError as exc:
-        raise UnauthorizedException("Invalid token header") from exc
+        raise AuthenticationException("Invalid token header") from exc
 
     kid = headers.get("kid")
     for key in jwks.get("keys", []):
         if key.get("kid") == kid:
             return key
 
-    raise UnauthorizedException("Unable to find a matching signing key")
+    raise AuthenticationException("Unable to find a matching signing key")
 
 
 def _extract_token_data(claims: dict[str, Any]) -> TokenData:
@@ -187,11 +187,11 @@ def _extract_token_data(claims: dict[str, Any]) -> TokenData:
     roles = claims.get("realm_access", {}).get("roles", [])
 
     if not isinstance(sub, str) or not sub:
-        raise UnauthorizedException("Token subject is missing")
+        raise AuthenticationException("Token subject is missing")
     if not isinstance(email, str) or not email:
-        raise UnauthorizedException("Token email is missing")
+        raise AuthenticationException("Token email is missing")
     if not isinstance(roles, list) or any(not isinstance(role, str) for role in roles):
-        raise UnauthorizedException("Token roles are invalid")
+        raise AuthenticationException("Token roles are invalid")
 
     return TokenData(sub=sub, email=email, roles=roles)
 
@@ -200,7 +200,7 @@ async def get_current_user(
     token: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
 ) -> TokenData:
     if token is None or not token.credentials:
-        raise UnauthorizedException("Authentication credentials were not provided")
+        raise AuthenticationException("Authentication credentials were not provided")
 
     try:
         jwks = await _fetch_jwks()
@@ -212,11 +212,11 @@ async def get_current_user(
             options={"verify_aud": False},
         )
     except httpx.HTTPError as exc:
-        raise UnauthorizedException(
+        raise AuthenticationException(
             "Unable to retrieve JWKS for token validation"
         ) from exc
     except JWTError as exc:
-        raise UnauthorizedException("Invalid or expired token") from exc
+        raise AuthenticationException("Invalid or expired token") from exc
 
     return _extract_token_data(claims)
 
@@ -239,7 +239,7 @@ async def get_current_db_user(
     )
     user = result.scalar_one_or_none()
     if user is None:
-        raise UnauthorizedException("Authenticated user was not found")
+        raise AuthenticationException("Authenticated user was not found")
     return user
 
 

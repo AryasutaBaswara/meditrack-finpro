@@ -138,7 +138,7 @@ async def test_post_dispensation_rejects_non_pharmacist(client: AsyncClient):
     assert response.status_code == 403
     body = response.json()
     assert body["data"] is None
-    assert body["error"]["code"] == "UNAUTHORIZED"
+    assert body["error"]["code"] == "FORBIDDEN"
 
 
 @pytest.mark.asyncio

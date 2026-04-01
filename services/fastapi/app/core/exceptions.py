@@ -60,10 +60,19 @@ class InteractionDetectedException(MediTrackException):
         )
 
 
-class UnauthorizedException(MediTrackException):
+class AuthenticationException(MediTrackException):
     def __init__(self, message: str) -> None:
         super().__init__(
             code="UNAUTHORIZED",
+            message=message,
+            status_code=401,
+        )
+
+
+class UnauthorizedException(MediTrackException):
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            code="FORBIDDEN",
             message=message,
             status_code=403,
         )

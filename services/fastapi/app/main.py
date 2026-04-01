@@ -11,7 +11,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from openai import AsyncOpenAI
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncEngine
 from supabase import Client, create_client
 
 from app.api.v1 import router as api_router
@@ -25,6 +25,7 @@ from app.api.v1.dependencies import (
 from app.core.config import settings
 from app.core.exceptions import MediTrackException
 from app.core.responses import ApiResponse, error_response, success_response
+from app.db.session import create_database_engine
 
 logger = logging.getLogger("meditrack")
 
@@ -41,10 +42,7 @@ async def lifespan(app: FastAPI):
         settings.supabase_service_role_key,
     )
 
-    engine: AsyncEngine = create_async_engine(
-        settings.database_url,
-        pool_pre_ping=True,
-    )
+    engine: AsyncEngine = create_database_engine()
     set_db_engine(engine)
     app.state.db_engine = engine
 

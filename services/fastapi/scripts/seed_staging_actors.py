@@ -13,7 +13,7 @@ from uuid import UUID
 import httpx
 from jose import jwt
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 CURRENT_FILE = Path(__file__).resolve()
 FASTAPI_ROOT = CURRENT_FILE.parents[1]
@@ -21,6 +21,7 @@ if str(FASTAPI_ROOT) not in sys.path:
     sys.path.insert(0, str(FASTAPI_ROOT))
 
 from app.core.config import settings  # noqa: E402
+from app.db.session import create_database_engine  # noqa: E402
 from app.db.models.clinic import Clinic  # noqa: E402
 from app.db.models.doctor import Doctor  # noqa: E402
 from app.db.models.drug import Drug  # noqa: E402
@@ -346,7 +347,7 @@ async def ensure_sample_prescription(
 
 async def seed_actors(actor_file: Path, create_sample_prescription: bool) -> None:
     specs = load_actor_specs(actor_file)
-    engine = create_async_engine(settings.database_url, pool_pre_ping=True)
+    engine = create_database_engine()
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
     doctor_row: Doctor | None = None

@@ -8,11 +8,11 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 from sqlalchemy import text, insert
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import sessionmaker
 
 # 💡 Import Configuration & Model from the app
-from app.core.config import settings
+from app.db.session import create_database_engine
 from app.db.models.drug import Drug
 
 # Logging Setup
@@ -29,7 +29,7 @@ CSV_FILE = os.path.join(
 async def bulk_seed():
     """Mengimpor 50.000 data obat dari CSV ke PostgreSQL dengan gaya High-Performance."""
 
-    engine = create_async_engine(settings.database_url)
+    engine = create_database_engine()
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     logger.info("🚀 Memulai proses seeding 50.000 data...")
