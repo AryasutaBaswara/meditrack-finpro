@@ -1,18 +1,15 @@
 name: CD (GitOps)
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
+  push:
     branches:
       - staging
+  workflow_dispatch:
 
 jobs:
   update-manifest:
     name: Update K8s Manifest
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: write
 
@@ -20,7 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.workflow_run.head_branch }}
+          ref: ${{ github.ref_name }}
 
       - name: Set up Kustomize
         run: |
@@ -28,10 +25,9 @@ jobs:
           sudo mv kustomize /usr/local/bin/
 
       - name: Update Staging Manifest Image Tag
-        if: github.event.workflow_run.head_branch == 'staging'
         run: |
           cd infra/k8s/overlays/staging
-          kustomize edit set image ghcr.io/aryasutabaswara/meditrack-fastapi=ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${{ github.event.workflow_run.head_sha }}
+          kustomize edit set image ghcr.io/aryasutabaswara/meditrack-fastapi=ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${{ github.sha }}
 
       - name: Commit and Push Manifest Changes
         run: |
@@ -39,14 +35,13 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add infra/k8s/overlays/staging/kustomization.yaml
           git diff --cached --quiet && exit 0
-          git commit -m "chore(gitops): update staging image tag to staging-${{ github.event.workflow_run.head_sha }}"
-          git push origin ${{ github.event.workflow_run.head_branch }}
+          git commit -m "chore(gitops): update staging image tag to staging-${{ github.sha }}"
+          git push origin ${{ github.ref_name }}
 
   verify-staging:
     name: Verify Staging
     runs-on: self-hosted
     needs: update-manifest
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'staging' }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -57,7 +52,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          target_sha="${{ github.event.workflow_run.head_sha }}"
+          target_sha="${{ github.sha }}"
           expected_tag="ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${target_sha}"
           for attempt in $(seq 1 30); do
             current_image=$(kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}')
