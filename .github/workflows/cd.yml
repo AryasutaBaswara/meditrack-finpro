@@ -57,7 +57,7 @@ jobs:
           ver
 
       - name: Wait for ArgoCD sync target revision
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
           $targetSha = '${{ github.sha }}'
@@ -74,7 +74,7 @@ jobs:
           Write-Error "Timed out waiting for ArgoCD to deploy $expectedTag"
 
       - name: Verify staging rollouts
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
           kubectl rollout status deployment/staging-fastapi -n meditrack-staging --timeout=300s
@@ -83,7 +83,7 @@ jobs:
           kubectl rollout status deployment/staging-redis -n meditrack-staging --timeout=300s
 
       - name: Verify staging health endpoint
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
           $logPath = Join-Path $env:RUNNER_TEMP 'meditrack-fastapi-port-forward.log'
@@ -110,7 +110,7 @@ jobs:
           }
 
       - name: Verify reindex cronjob exists
-        shell: powershell
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
           kubectl get cronjob staging-fastapi-reindex -n meditrack-staging
