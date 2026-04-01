@@ -175,6 +175,15 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($expectedTag)) {
             Write-Error 'Expected image output from update-manifest is empty'
           }
+
+          $manifestFile = 'infra/k8s/overlays/staging/kustomization.yaml'
+          $manifestTagMatch = Select-String -Path $manifestFile -Pattern 'newTag:\s*(\S+)'
+          $desiredTag = $null
+          if ($manifestTagMatch) {
+            $desiredTag = "ghcr.io/aryasutabaswara/meditrack-fastapi:$($manifestTagMatch.Matches[0].Groups[1].Value)"
+            Write-Host "Latest checked-out staging manifest expects $desiredTag"
+          }
+
           for ($attempt = 1; $attempt -le 60; $attempt++) {
             $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}' 2>&1
             if ($LASTEXITCODE -ne 0) {
@@ -187,6 +196,11 @@ jobs:
             }
             if ($currentImage -eq $expectedTag) {
               Write-Host "Staging deployment now uses $currentImage"
+              exit 0
+            }
+            if ($desiredTag -and $currentImage -eq $desiredTag) {
+              Write-Host "Staging deployment already matches the latest checked-out manifest: $currentImage"
+              Write-Host "This run is treating the newer applied staging image as success."
               exit 0
             }
             Write-Host "Attempt $attempt`: current image is $currentImage, waiting for $expectedTag"
