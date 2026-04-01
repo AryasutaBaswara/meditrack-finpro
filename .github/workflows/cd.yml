@@ -6,10 +6,16 @@ on:
       - staging
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   update-manifest:
     name: Update K8s Manifest
     runs-on: ubuntu-latest
+    outputs:
+      expected_image: ${{ steps.capture-image.outputs.expected_image }}
     permissions:
       contents: write
       packages: read
@@ -53,6 +59,10 @@ jobs:
         run: |
           cd infra/k8s/overlays/staging
           kustomize edit set image ghcr.io/aryasutabaswara/meditrack-fastapi=ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${SHORT_SHA}
+
+      - name: Capture expected image
+        id: capture-image
+        run: echo "expected_image=ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: Commit and Push Manifest Changes
         run: |
@@ -156,8 +166,10 @@ jobs:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
-          $targetSha = '${{ github.sha }}'.Substring(0, 7)
-          $expectedTag = "ghcr.io/aryasutabaswara/meditrack-fastapi:staging-$targetSha"
+          $expectedTag = '${{ needs.update-manifest.outputs.expected_image }}'
+          if ([string]::IsNullOrWhiteSpace($expectedTag)) {
+            Write-Error 'Expected image output from update-manifest is empty'
+          }
           for ($attempt = 1; $attempt -le 30; $attempt++) {
             $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}' 2>&1
             if ($LASTEXITCODE -ne 0) {
