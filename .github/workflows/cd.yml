@@ -48,6 +48,14 @@ jobs:
         with:
           ref: staging
 
+      - name: Verify runner environment
+        shell: cmd
+        run: |
+          echo RUNNER_OS=%RUNNER_OS%
+          echo RUNNER_ARCH=%RUNNER_ARCH%
+          where powershell
+          ver
+
       - name: Wait for ArgoCD sync target revision
         shell: powershell
         run: |
