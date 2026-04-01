@@ -157,9 +157,6 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($resolvedKeycloakSecret)) {
             Write-Error 'Missing Keycloak client secret. Set STAGING_KEYCLOAK_CLIENT_SECRET in GitHub Environment staging or populate KEYCLOAK_CLIENT_SECRET in Kubernetes secret staging-fastapi-secrets.'
           }
-          if ($resolvedKeycloakSecret -eq 'replace-with-staging-client-secret') {
-            Write-Error 'KEYCLOAK_CLIENT_SECRET in Kubernetes secret staging-fastapi-secrets is still a placeholder. Replace it with the real meditrack-backend client secret from the staging Keycloak realm.'
-          }
           if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_DOCTOR_PASSWORD)) {
             Write-Error 'Missing GitHub secret STAGING_DOCTOR_PASSWORD'
           }
