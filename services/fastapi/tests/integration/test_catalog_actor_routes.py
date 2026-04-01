@@ -270,6 +270,18 @@ async def test_search_drugs_returns_success_envelope(client: AsyncClient):
 
 
 @pytest.mark.asyncio
+async def test_search_drugs_requires_doctor_role(client: AsyncClient):
+    app.dependency_overrides[get_current_active_user] = override_current_user(
+        "pharmacist"
+    )
+
+    response = await client.get("/api/v1/drugs/search?q=amox")
+
+    assert response.status_code == 403
+    assert response.json()["error"]["code"] == "UNAUTHORIZED"
+
+
+@pytest.mark.asyncio
 async def test_list_patients_returns_paginated_envelope(client: AsyncClient):
     patient = build_patient()
     app.dependency_overrides[get_current_active_user] = override_current_user("doctor")

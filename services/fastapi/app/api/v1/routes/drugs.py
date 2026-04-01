@@ -37,7 +37,7 @@ async def list_drugs(
 @router.get("/search", response_model=ApiResponse[list[DrugSearchResult]])
 async def search_drugs(
     q: str = Query(min_length=1),
-    _current_user: TokenData = Depends(require_roles()),
+    _current_user: TokenData = Depends(require_roles("doctor")),
     service: DrugService = Depends(get_drug_service),
 ) -> dict[str, Any]:
     results = await service.search_autocomplete(q)

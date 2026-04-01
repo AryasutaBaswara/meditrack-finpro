@@ -1,0 +1,40 @@
+[
+  {
+    "username": "doctor_stage",
+    "password": "replace-with-staging-doctor-password",
+    "role": "doctor",
+    "email": "doctor@meditrack.staging",
+    "full_name": "Dr. MediTrack Staging",
+    "phone": "+62-812-0000-0001",
+    "sip_number": "SIP-STAGING-DOCTOR",
+    "specialization": "General Medicine"
+  },
+  {
+    "username": "pharmacist_stage",
+    "password": "replace-with-staging-pharmacist-password",
+    "role": "pharmacist",
+    "email": "pharmacist@meditrack.staging",
+    "full_name": "MediTrack Staging Pharmacist",
+    "phone": "+62-812-0000-0002"
+  },
+  {
+    "username": "patient_stage",
+    "password": "replace-with-staging-patient-password",
+    "role": "patient",
+    "email": "patient@meditrack.staging",
+    "full_name": "Staging Patient",
+    "phone": "+62-812-0000-0003",
+    "nik": "3173000000000001",
+    "blood_type": "O+",
+    "allergies": "None",
+    "emergency_contact": "Staging Family"
+  },
+  {
+    "username": "admin_stage",
+    "password": "replace-with-staging-admin-password",
+    "role": "admin",
+    "email": "admin@meditrack.staging",
+    "full_name": "MediTrack Staging Admin",
+    "phone": "+62-812-0000-0004"
+  }
+]
