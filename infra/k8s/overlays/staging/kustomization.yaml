@@ -16,11 +16,6 @@ configMapGenerator:
   - name: keycloak-realm-import
     files:
       - keycloak/meditrack-staging-realm.json
-
-secretGenerator:
-  - name: fastapi-secrets
-    envs:
-      - fastapi/secret.env
 generatorOptions:
   disableNameSuffixHash: true
 
