@@ -41,3 +41,64 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "chore(gitops): update staging image tag to staging-${{ github.event.workflow_run.head_sha }}"
           git push origin ${{ github.event.workflow_run.head_branch }}
+
+  verify-staging:
+    name: Verify Staging
+    runs-on: self-hosted
+    needs: update-manifest
+    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'staging' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+
+      - name: Wait for ArgoCD sync target revision
+        shell: bash
+        run: |
+          set -euo pipefail
+          target_sha="${{ github.event.workflow_run.head_sha }}"
+          expected_tag="ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${target_sha}"
+          for attempt in $(seq 1 30); do
+            current_image=$(kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}')
+            if [[ "$current_image" == "$expected_tag" ]]; then
+              echo "Staging deployment now uses $current_image"
+              exit 0
+            fi
+            echo "Attempt $attempt: current image is $current_image, waiting for $expected_tag"
+            sleep 10
+          done
+          echo "Timed out waiting for ArgoCD to deploy $expected_tag"
+          exit 1
+
+      - name: Verify staging rollouts
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl rollout status deployment/staging-fastapi -n meditrack-staging --timeout=300s
+          kubectl rollout status deployment/staging-keycloak -n meditrack-staging --timeout=300s
+          kubectl rollout status deployment/staging-elasticsearch -n meditrack-staging --timeout=300s
+          kubectl rollout status deployment/staging-redis -n meditrack-staging --timeout=300s
+
+      - name: Verify staging health endpoint
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl port-forward -n meditrack-staging svc/staging-fastapi 18000:80 >/tmp/meditrack-fastapi-port-forward.log 2>&1 &
+          pf_pid=$!
+          trap 'kill $pf_pid' EXIT
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:18000/api/v1/health | grep -q '"status":"ok"'; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Staging health endpoint did not become ready"
+          cat /tmp/meditrack-fastapi-port-forward.log || true
+          exit 1
+
+      - name: Verify reindex cronjob exists
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl get cronjob staging-fastapi-reindex -n meditrack-staging
