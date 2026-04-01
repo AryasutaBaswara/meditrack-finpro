@@ -25,6 +25,9 @@ jobs:
           curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
           sudo mv kustomize /usr/local/bin/
 
+      - name: Set short SHA
+        run: echo "SHORT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -34,7 +37,7 @@ jobs:
 
       - name: Wait for staging image in GHCR
         run: |
-          image="ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${{ github.sha }}"
+          image="ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${SHORT_SHA}"
           for attempt in $(seq 1 30); do
             if docker manifest inspect "$image" >/dev/null 2>&1; then
               echo "Image is available: $image"
@@ -49,7 +52,7 @@ jobs:
       - name: Update Staging Manifest Image Tag
         run: |
           cd infra/k8s/overlays/staging
-          kustomize edit set image ghcr.io/aryasutabaswara/meditrack-fastapi=ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${{ github.sha }}
+          kustomize edit set image ghcr.io/aryasutabaswara/meditrack-fastapi=ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${SHORT_SHA}
 
       - name: Commit and Push Manifest Changes
         run: |
@@ -57,7 +60,7 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git add infra/k8s/overlays/staging/kustomization.yaml
           git diff --cached --quiet && exit 0
-          git commit -m "chore(gitops): update staging image tag to staging-${{ github.sha }}"
+          git commit -m "chore(gitops): update staging image tag to staging-${SHORT_SHA}"
           git push origin ${{ github.ref_name }}
 
   verify-staging:
@@ -153,7 +156,7 @@ jobs:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
-          $targetSha = '${{ github.sha }}'
+          $targetSha = '${{ github.sha }}'.Substring(0, 7)
           $expectedTag = "ghcr.io/aryasutabaswara/meditrack-fastapi:staging-$targetSha"
           for ($attempt = 1; $attempt -le 30; $attempt++) {
             $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}' 2>&1
