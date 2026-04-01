@@ -37,6 +37,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Resolve suite
+        id: resolve-suite
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $suite = 'smoke'
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch' -and -not [string]::IsNullOrWhiteSpace('${{ inputs.suite }}')) {
+            $suite = '${{ inputs.suite }}'
+          }
+          "suite=$suite" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Resolved automation suite: $suite"
+
       - name: Bootstrap minikube context
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
@@ -80,7 +92,7 @@ jobs:
           Start-Sleep -Seconds 8
 
       - name: Set up Node.js
-        if: ${{ inputs.suite == 'smoke' }}
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -88,40 +100,40 @@ jobs:
           cache-dependency-path: automation/package-lock.json
 
       - name: Install automation dependencies
-        if: ${{ inputs.suite == 'smoke' }}
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         working-directory: automation
         run: npm ci
 
       - name: Run Playwright smoke tests
-        if: ${{ inputs.suite == 'smoke' }}
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         working-directory: automation
         run: npm run test:smoke
 
       - name: Set up Python
-        if: ${{ inputs.suite == 'load' }}
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
       - name: Install Locust dependencies
-        if: ${{ inputs.suite == 'load' }}
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
         working-directory: automation
         run: pip install -r load/requirements.txt
 
       - name: Upload Playwright report
-        if: ${{ always() && inputs.suite == 'smoke' }}
+        if: ${{ always() && steps.resolve-suite.outputs.suite == 'smoke' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: automation/playwright-report
 
       - name: Run Locust load test
-        if: ${{ inputs.suite == 'load' }}
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
         working-directory: automation
         run: locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host ${{ env.MEDITRACK_BASE_URL }} --html locust-report.html --csv locust-report
 
       - name: Upload Locust report
-        if: ${{ always() && inputs.suite == 'load' }}
+        if: ${{ always() && steps.resolve-suite.outputs.suite == 'load' }}
         uses: actions/upload-artifact@v4
         with:
           name: locust-report
