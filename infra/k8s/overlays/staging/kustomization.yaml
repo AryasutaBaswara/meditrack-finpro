@@ -32,4 +32,4 @@ labels:
 images:
 - name: ghcr.io/aryasutabaswara/meditrack-fastapi
   newName: ghcr.io/aryasutabaswara/meditrack-fastapi
-  newTag: staging-770daf36ed4bceaf476e3bd9f257e09e99bf5973
+  newTag: staging-f2987b7763b9bd30ddeab555c4d07c35466ada19
