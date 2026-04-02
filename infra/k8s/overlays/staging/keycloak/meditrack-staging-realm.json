@@ -62,5 +62,63 @@
         }
       ]
     }
+  ],
+  "users": [
+    {
+      "username": "admin_stage",
+      "email": "admin@meditrack.staging",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "replace-with-staging-admin-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["admin"]
+    },
+    {
+      "username": "doctor_stage",
+      "email": "doctor@meditrack.staging",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "replace-with-staging-doctor-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["doctor"]
+    },
+    {
+      "username": "pharmacist_stage",
+      "email": "pharmacist@meditrack.staging",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "replace-with-staging-pharmacist-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["pharmacist"]
+    },
+    {
+      "username": "patient_stage",
+      "email": "patient@meditrack.staging",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "replace-with-staging-patient-password",
+          "temporary": false
+        }
+      ],
+      "realmRoles": ["patient"]
+    }
   ]
 }

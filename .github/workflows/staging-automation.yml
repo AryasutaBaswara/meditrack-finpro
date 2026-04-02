@@ -224,6 +224,68 @@ jobs:
             Write-Error ($failures -join "`n")
           }
 
+      - name: Seed staging automation actors
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $actorsFile = Join-Path $env:RUNNER_TEMP 'staging-actors.json'
+          $actors = @(
+            @{
+              username = $env:MEDITRACK_DOCTOR_USERNAME
+              password = $env:MEDITRACK_DOCTOR_PASSWORD
+              role = 'doctor'
+              email = 'doctor@meditrack.staging'
+              full_name = 'Dr. MediTrack Staging'
+              phone = '+62-812-0000-0001'
+              sip_number = 'SIP-STAGING-DOCTOR'
+              specialization = 'General Medicine'
+            }
+            @{
+              username = $env:MEDITRACK_PHARMACIST_USERNAME
+              password = $env:MEDITRACK_PHARMACIST_PASSWORD
+              role = 'pharmacist'
+              email = 'pharmacist@meditrack.staging'
+              full_name = 'MediTrack Staging Pharmacist'
+              phone = '+62-812-0000-0002'
+            }
+            @{
+              username = $env:MEDITRACK_PATIENT_USERNAME
+              password = $env:MEDITRACK_PATIENT_PASSWORD
+              role = 'patient'
+              email = 'patient@meditrack.staging'
+              full_name = 'Staging Patient'
+              phone = '+62-812-0000-0003'
+              nik = '3173000000000001'
+              blood_type = 'O+'
+              allergies = 'None'
+              emergency_contact = 'Staging Family'
+            }
+          )
+
+          $actors | ConvertTo-Json -Depth 5 | Set-Content -Path $actorsFile -Encoding utf8
+
+          $podName = kubectl get pod -n meditrack-staging -l app=fastapi -o jsonpath='{.items[0].metadata.name}'
+          if ([string]::IsNullOrWhiteSpace($podName)) {
+            Write-Error 'Unable to resolve staging FastAPI pod for actor seeding'
+          }
+
+          try {
+            kubectl cp $actorsFile "meditrack-staging/${podName}:/tmp/staging-actors.json"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error 'Failed to copy staging actor seed file into FastAPI pod'
+            }
+
+            kubectl exec -n meditrack-staging $podName -- python /app/scripts/seed_staging_actors.py --actors-file /tmp/staging-actors.json
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error 'Failed to seed staging automation actors'
+            }
+          }
+          finally {
+            Remove-Item $actorsFile -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Set up Node.js
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         uses: actions/setup-node@v4
