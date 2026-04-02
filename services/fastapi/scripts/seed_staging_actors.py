@@ -13,6 +13,7 @@ from uuid import UUID
 
 import httpx
 from jose import jwt
+from sqlalchemy import or_
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
@@ -191,7 +192,12 @@ async def upsert_user(
     identity: KeycloakIdentity,
 ) -> User:
     result = await session.execute(
-        select(User).where(User.keycloak_sub == identity.sub)
+        select(User).where(
+            or_(
+                User.keycloak_sub == identity.sub,
+                User.email == identity.email,
+            )
+        )
     )
     user = result.scalar_one_or_none()
     if user is None:
@@ -200,8 +206,17 @@ async def upsert_user(
         await session.flush()
         logger.info("Created user for %s", spec.username)
     else:
+        if user.keycloak_sub != identity.sub:
+            logger.info(
+                "Updating keycloak_sub for %s from %s to %s",
+                spec.username,
+                user.keycloak_sub,
+                identity.sub,
+            )
+        user.keycloak_sub = identity.sub
         user.email = identity.email
         user.is_active = True
+        user.deleted_at = None
         await session.flush()
 
     result = await session.execute(select(Profile).where(Profile.user_id == user.id))
