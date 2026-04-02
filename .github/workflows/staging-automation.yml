@@ -111,68 +111,6 @@ jobs:
 
           Write-Error "Timed out waiting for staging deployment image $expectedImage"
 
-      - name: Start staging port-forwards
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          function Stop-PortListeners {
-            param([int]$Port)
-
-            $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
-            if ($null -eq $listeners) {
-              return
-            }
-
-            $listeners |
-              Select-Object -ExpandProperty OwningProcess -Unique |
-              ForEach-Object {
-                Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
-              }
-          }
-
-          function Assert-PortForwardStarted {
-            param(
-              [System.Diagnostics.Process]$Process,
-              [string]$Name,
-              [string]$StdOutLog,
-              [string]$StdErrLog
-            )
-
-            Start-Sleep -Seconds 3
-            if (-not $Process.HasExited) {
-              return
-            }
-
-            Write-Host "$Name port-forward exited immediately"
-            if (Test-Path $StdOutLog) {
-              Write-Host "--- $Name stdout ---"
-              Get-Content $StdOutLog
-            }
-            if (Test-Path $StdErrLog) {
-              Write-Host "--- $Name stderr ---"
-              Get-Content $StdErrLog
-            }
-            Write-Error "$Name port-forward failed to start"
-          }
-
-          Stop-PortListeners -Port 18000
-          Stop-PortListeners -Port 18080
-
-          $fastapiOut = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.out.log'
-          $fastapiErr = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.err.log'
-          $keycloakOut = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.out.log'
-          $keycloakErr = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.err.log'
-
-          $fastapi = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $fastapiOut -RedirectStandardError $fastapiErr -PassThru -WindowStyle Hidden
-          $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
-
-          Assert-PortForwardStarted -Process $fastapi -Name 'FastAPI' -StdOutLog $fastapiOut -StdErrLog $fastapiErr
-          Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
-
-          "FASTAPI_PORT_FORWARD_PID=$($fastapi.Id)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          "KEYCLOAK_PORT_FORWARD_PID=$($keycloak.Id)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-
       - name: Validate smoke secrets
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
@@ -288,17 +226,141 @@ jobs:
         working-directory: automation
         run: pip install -r load/requirements.txt
 
+      - name: Run staging automation suite
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' || steps.resolve-suite.outputs.suite == 'load' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Stop-PortListeners {
+            param([int]$Port)
+
+            $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+            if ($null -eq $listeners) {
+              return
+            }
+
+            $listeners |
+              Select-Object -ExpandProperty OwningProcess -Unique |
+              ForEach-Object {
+                Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+          function Assert-PortForwardStarted {
+            param(
+              [System.Diagnostics.Process]$Process,
+              [string]$Name,
+              [string]$StdOutLog,
+              [string]$StdErrLog
+            )
+
+            Start-Sleep -Seconds 3
+            if (-not $Process.HasExited) {
+              return
+            }
+
+            Write-Host "$Name port-forward exited immediately"
+            if (Test-Path $StdOutLog) {
+              Write-Host "--- $Name stdout ---"
+              Get-Content $StdOutLog
+            }
+            if (Test-Path $StdErrLog) {
+              Write-Host "--- $Name stderr ---"
+              Get-Content $StdErrLog
+            }
+            Write-Error "$Name port-forward failed to start"
+          }
+
+          function Wait-HttpReady {
+            param(
+              [string]$Name,
+              [string]$Url,
+              [int]$Attempts = 20,
+              [string]$StdOutLog = '',
+              [string]$StdErrLog = ''
+            )
+
+            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
+              if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
+                Write-Host "$Name ready with status $statusCode at $Url"
+                return
+              }
+
+              Write-Host ("Attempt {0}: waiting for {1} at {2}" -f $attempt, $Name, $Url)
+              Start-Sleep -Seconds 3
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($StdOutLog) -and (Test-Path $StdOutLog)) {
+              Write-Host "--- $Name port-forward stdout ---"
+              Get-Content $StdOutLog
+            }
+            if (-not [string]::IsNullOrWhiteSpace($StdErrLog) -and (Test-Path $StdErrLog)) {
+              Write-Host "--- $Name port-forward stderr ---"
+              Get-Content $StdErrLog
+            }
+
+            Write-Error "$Name did not become ready at $Url"
+          }
+
+          $suite = '${{ steps.resolve-suite.outputs.suite }}'
+          $fastapiOut = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.out.log'
+          $fastapiErr = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.err.log'
+          $keycloakOut = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.out.log'
+          $keycloakErr = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.err.log'
+
+          Stop-PortListeners -Port 18000
+          Stop-PortListeners -Port 18080
+
+          $fastapi = $null
+          $keycloak = $null
+          try {
+            $fastapi = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $fastapiOut -RedirectStandardError $fastapiErr -PassThru -WindowStyle Hidden
+            $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
+
+            Assert-PortForwardStarted -Process $fastapi -Name 'FastAPI' -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+
+            Wait-HttpReady -Name 'FastAPI health endpoint' -Url "$($env:MEDITRACK_BASE_URL)/api/v1/health" -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+
+            if ($suite -eq 'smoke') {
+              Push-Location automation
+              try {
+                npm run test:smoke
+              }
+              finally {
+                Pop-Location
+              }
+            }
+            elseif ($suite -eq 'load') {
+              Push-Location automation
+              try {
+                locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host $env:MEDITRACK_BASE_URL --html locust-report.html --csv locust-report
+              }
+              finally {
+                Pop-Location
+              }
+            }
+            else {
+              Write-Error "Unsupported automation suite: $suite"
+            }
+          }
+          finally {
+            foreach ($process in @($fastapi, $keycloak)) {
+              if ($null -ne $process) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              }
+            }
+          }
+
       - name: Upload Playwright report
         if: ${{ always() && steps.resolve-suite.outputs.suite == 'smoke' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: automation/playwright-report
-
-      - name: Run Locust load test
-        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
-        working-directory: automation
-        run: locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host ${{ env.MEDITRACK_BASE_URL }} --html locust-report.html --csv locust-report
 
       - name: Upload Locust report
         if: ${{ always() && steps.resolve-suite.outputs.suite == 'load' }}
@@ -321,14 +383,3 @@ jobs:
             ${{ runner.temp }}/staging-fastapi-port-forward.err.log
             ${{ runner.temp }}/staging-keycloak-port-forward.out.log
             ${{ runner.temp }}/staging-keycloak-port-forward.err.log
-
-      - name: Stop staging port-forwards
-        if: always()
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
-        run: |
-          $ErrorActionPreference = 'Continue'
-          foreach ($pidValue in @($env:FASTAPI_PORT_FORWARD_PID, $env:KEYCLOAK_PORT_FORWARD_PID)) {
-            if (-not [string]::IsNullOrWhiteSpace($pidValue)) {
-              Stop-Process -Id $pidValue -Force -ErrorAction SilentlyContinue
-            }
-          }
