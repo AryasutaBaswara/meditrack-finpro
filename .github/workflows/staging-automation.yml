@@ -189,22 +189,40 @@ jobs:
             $response = & curl.exe @curlArgs
 
             if ($LASTEXITCODE -ne 0) {
-              Write-Error "Keycloak password grant request failed for $ActorName"
+              return "Keycloak password grant request failed for $ActorName ($Username)"
             }
 
             $payload = $response | ConvertFrom-Json
             if ($null -eq $payload.access_token) {
               $errorCode = if ($null -ne $payload.error) { $payload.error } else { 'unknown_error' }
               $errorDescription = if ($null -ne $payload.error_description) { $payload.error_description } else { 'No error description returned' }
-              Write-Error "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription"
+              return "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription"
             }
 
             Write-Host "Keycloak password grant succeeded for $ActorName ($Username)"
+            return $null
           }
 
-          Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
-          Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PHARMACIST_USERNAME -Password $env:MEDITRACK_PHARMACIST_PASSWORD -ActorName 'pharmacist'
-          Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PATIENT_USERNAME -Password $env:MEDITRACK_PATIENT_PASSWORD -ActorName 'patient'
+          $failures = @()
+
+          $doctorFailure = Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
+          if (-not [string]::IsNullOrWhiteSpace($doctorFailure)) {
+            $failures += $doctorFailure
+          }
+
+          $pharmacistFailure = Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PHARMACIST_USERNAME -Password $env:MEDITRACK_PHARMACIST_PASSWORD -ActorName 'pharmacist'
+          if (-not [string]::IsNullOrWhiteSpace($pharmacistFailure)) {
+            $failures += $pharmacistFailure
+          }
+
+          $patientFailure = Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PATIENT_USERNAME -Password $env:MEDITRACK_PATIENT_PASSWORD -ActorName 'patient'
+          if (-not [string]::IsNullOrWhiteSpace($patientFailure)) {
+            $failures += $patientFailure
+          }
+
+          if ($failures.Count -gt 0) {
+            Write-Error ($failures -join "`n")
+          }
 
       - name: Set up Node.js
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
