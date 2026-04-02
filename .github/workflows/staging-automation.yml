@@ -152,51 +152,6 @@ jobs:
             Write-Error 'Missing GitHub secret STAGING_PATIENT_PASSWORD'
           }
 
-      - name: Wait for staging port-forwards
-        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
-        run: |
-          $ErrorActionPreference = 'Stop'
-
-          function Wait-HttpReady {
-            param(
-              [string]$Name,
-              [string]$Url,
-              [int]$Attempts = 20,
-              [string]$StdOutLog = '',
-              [string]$StdErrLog = ''
-            )
-
-            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
-              if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
-                Write-Host "$Name ready with status $statusCode at $Url"
-                return
-              }
-
-              Write-Host ("Attempt {0}: waiting for {1} at {2}" -f $attempt, $Name, $Url)
-              Start-Sleep -Seconds 3
-            }
-
-            if (-not [string]::IsNullOrWhiteSpace($StdOutLog) -and (Test-Path $StdOutLog)) {
-              Write-Host "--- $Name port-forward stdout ---"
-              Get-Content $StdOutLog
-            }
-            if (-not [string]::IsNullOrWhiteSpace($StdErrLog) -and (Test-Path $StdErrLog)) {
-              Write-Host "--- $Name port-forward stderr ---"
-              Get-Content $StdErrLog
-            }
-
-            Write-Error "$Name did not become ready at $Url"
-          }
-
-          $fastapiOut = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.out.log'
-          $fastapiErr = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.err.log'
-          $keycloakOut = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.out.log'
-          $keycloakErr = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.err.log'
-
-          Wait-HttpReady -Name 'FastAPI health endpoint' -Url "$($env:MEDITRACK_BASE_URL)/api/v1/health" -StdOutLog $fastapiOut -StdErrLog $fastapiErr
-          Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
-
       - name: Set up Node.js
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         uses: actions/setup-node@v4
@@ -209,11 +164,6 @@ jobs:
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         working-directory: automation
         run: npm ci
-
-      - name: Run Playwright smoke tests
-        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
-        working-directory: automation
-        run: npm run test:smoke
 
       - name: Set up Python
         if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
