@@ -1,9 +1,17 @@
-import {
-  APIRequestContext,
-  APIRequestNewContextOptions,
-  expect,
-  Playwright,
-} from "@playwright/test";
+import process from "node:process";
+
+import { APIRequestContext, expect } from "@playwright/test";
+
+type RequestContextOptions = {
+  baseURL?: string;
+  extraHTTPHeaders?: Record<string, string>;
+};
+
+type PlaywrightLike = {
+  request: {
+    newContext(options?: RequestContextOptions): Promise<APIRequestContext>;
+  };
+};
 
 type Role = "doctor" | "pharmacist" | "patient";
 
@@ -83,7 +91,19 @@ export async function requestAccessToken(
     },
   );
 
-  expect(response.status()).toBe(200);
+  if (response.status() !== 200) {
+    const responseBody = await response.text();
+    throw new Error(
+      [
+        "Failed to obtain Keycloak access token",
+        `status=${response.status()}`,
+        `realm=${config.keycloakRealm}`,
+        `client_id=${config.keycloakClientId}`,
+        `username=${credentials.username}`,
+        `body=${responseBody}`,
+      ].join(" | "),
+    );
+  }
 
   const payload = await response.json();
   expect(payload.access_token).toBeTruthy();
@@ -92,9 +112,9 @@ export async function requestAccessToken(
 }
 
 export async function createAuthorizedContext(
-  playwright: Playwright,
+  playwright: PlaywrightLike,
   role: Role,
-  options: APIRequestNewContextOptions = {},
+  options: RequestContextOptions = {},
 ): Promise<APIRequestContext> {
   const config = getRuntimeConfig();
   const request = await playwright.request.newContext();
