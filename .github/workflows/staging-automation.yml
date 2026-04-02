@@ -152,6 +152,47 @@ jobs:
             Write-Error 'Missing GitHub secret STAGING_PATIENT_PASSWORD'
           }
 
+      - name: Validate staging actor credentials
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Assert-KeycloakPasswordGrant {
+            param(
+              [string]$Username,
+              [string]$Password,
+              [string]$ActorName
+            )
+
+            $tokenUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)/protocol/openid-connect/token"
+            $response = curl.exe --silent --show-error --location \
+              --request POST $tokenUrl \
+              --header "Content-Type: application/x-www-form-urlencoded" \
+              --data-urlencode "grant_type=password" \
+              --data-urlencode "client_id=$($env:MEDITRACK_KEYCLOAK_CLIENT_ID)" \
+              --data-urlencode "client_secret=$($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)" \
+              --data-urlencode "username=$Username" \
+              --data-urlencode "password=$Password"
+
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Keycloak password grant request failed for $ActorName"
+            }
+
+            $payload = $response | ConvertFrom-Json
+            if ($null -eq $payload.access_token) {
+              $errorCode = if ($null -ne $payload.error) { $payload.error } else { 'unknown_error' }
+              $errorDescription = if ($null -ne $payload.error_description) { $payload.error_description } else { 'No error description returned' }
+              Write-Error "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription"
+            }
+
+            Write-Host "Keycloak password grant succeeded for $ActorName ($Username)"
+          }
+
+          Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
+          Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PHARMACIST_USERNAME -Password $env:MEDITRACK_PHARMACIST_PASSWORD -ActorName 'pharmacist'
+          Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PATIENT_USERNAME -Password $env:MEDITRACK_PATIENT_PASSWORD -ActorName 'patient'
+
       - name: Set up Node.js
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         uses: actions/setup-node@v4
