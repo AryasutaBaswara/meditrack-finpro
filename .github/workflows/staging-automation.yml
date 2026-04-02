@@ -230,7 +230,6 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
-          $actorsFile = Join-Path $env:RUNNER_TEMP 'staging-actors.json'
           $actors = @(
             @{
               username = $env:MEDITRACK_DOCTOR_USERNAME
@@ -264,26 +263,22 @@ jobs:
             }
           )
 
-          $actors | ConvertTo-Json -Depth 5 | Set-Content -Path $actorsFile -Encoding utf8
+          $actorsJson = $actors | ConvertTo-Json -Depth 5
+          $actorsBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($actorsJson))
+
+          kubectl rollout status deployment/staging-fastapi -n meditrack-staging --timeout=180s
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error 'Staging FastAPI deployment did not become ready before actor seeding'
+          }
 
           $podName = kubectl get pod -n meditrack-staging -l app=fastapi -o jsonpath='{.items[0].metadata.name}'
           if ([string]::IsNullOrWhiteSpace($podName)) {
             Write-Error 'Unable to resolve staging FastAPI pod for actor seeding'
           }
 
-          try {
-            kubectl cp $actorsFile "meditrack-staging/${podName}:/tmp/staging-actors.json"
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error 'Failed to copy staging actor seed file into FastAPI pod'
-            }
-
-            kubectl exec -n meditrack-staging $podName -- python /app/scripts/seed_staging_actors.py --actors-file /tmp/staging-actors.json
-            if ($LASTEXITCODE -ne 0) {
-              Write-Error 'Failed to seed staging automation actors'
-            }
-          }
-          finally {
-            Remove-Item $actorsFile -Force -ErrorAction SilentlyContinue
+          kubectl exec -n meditrack-staging $podName -- python /app/scripts/seed_staging_actors.py --actors-json-base64 $actorsBase64
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error 'Failed to seed staging automation actors'
           }
 
       - name: Set up Node.js

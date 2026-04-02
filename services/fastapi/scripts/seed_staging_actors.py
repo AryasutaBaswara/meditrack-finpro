@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import base64
 import json
 import logging
 import sys
@@ -78,7 +79,11 @@ class KeycloakIdentity:
 
 
 def load_actor_specs(file_path: Path) -> list[ActorSeedSpec]:
-    raw_items = json.loads(file_path.read_text(encoding="utf-8"))
+    return load_actor_specs_from_json(file_path.read_text(encoding="utf-8"))
+
+
+def load_actor_specs_from_json(raw_json: str) -> list[ActorSeedSpec]:
+    raw_items = json.loads(raw_json)
     if not isinstance(raw_items, list):
         raise ValueError("Actor seed file must contain a JSON array")
 
@@ -88,6 +93,11 @@ def load_actor_specs(file_path: Path) -> list[ActorSeedSpec]:
             raise ValueError("Each actor seed item must be a JSON object")
         specs.append(ActorSeedSpec(**raw_item))
     return specs
+
+
+def load_actor_specs_from_base64(payload: str) -> list[ActorSeedSpec]:
+    decoded = base64.b64decode(payload).decode("utf-8")
+    return load_actor_specs_from_json(decoded)
 
 
 async def fetch_identity(spec: ActorSeedSpec) -> KeycloakIdentity:
@@ -345,8 +355,18 @@ async def ensure_sample_prescription(
     logger.info("Created sample prescription %s", prescription.id)
 
 
-async def seed_actors(actor_file: Path, create_sample_prescription: bool) -> None:
-    specs = load_actor_specs(actor_file)
+async def seed_actors(
+    actor_file: Path | None,
+    actor_json_base64: str | None,
+    create_sample_prescription: bool,
+) -> None:
+    if actor_file is not None:
+        specs = load_actor_specs(actor_file)
+    elif actor_json_base64 is not None:
+        specs = load_actor_specs_from_base64(actor_json_base64)
+    else:
+        raise ValueError("Either actor_file or actor_json_base64 must be provided")
+
     engine = create_database_engine()
     session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -379,10 +399,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Seed staging DB rows that match existing Keycloak users"
     )
-    parser.add_argument(
+    source_group = parser.add_mutually_exclusive_group(required=True)
+    source_group.add_argument(
         "--actors-file",
-        required=True,
         help="Path to JSON file describing staging actors and credentials",
+    )
+    source_group.add_argument(
+        "--actors-json-base64",
+        help="Base64-encoded JSON payload describing staging actors and credentials",
     )
     parser.add_argument(
         "--no-sample-prescription",
@@ -396,7 +420,8 @@ def main() -> None:
     args = parse_args()
     asyncio.run(
         seed_actors(
-            actor_file=Path(args.actors_file),
+            actor_file=Path(args.actors_file) if args.actors_file else None,
+            actor_json_base64=args.actors_json_base64,
             create_sample_prescription=not args.no_sample_prescription,
         )
     )
