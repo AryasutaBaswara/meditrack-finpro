@@ -312,8 +312,9 @@ async def ensure_sample_prescription(
             Prescription.deleted_at.is_(None),
         )
         .order_by(Prescription.created_at.desc())
+        .limit(1)
     )
-    existing = result.scalar_one_or_none()
+    existing = result.scalars().first()
     if existing is not None:
         logger.info(
             "Sample prescription already exists for doctor %s and patient %s",
