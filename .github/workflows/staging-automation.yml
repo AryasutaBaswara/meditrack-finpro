@@ -158,6 +158,90 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
 
+          function Stop-PortListeners {
+            param([int]$Port)
+
+            $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+            if ($null -eq $listeners) {
+              return
+            }
+
+            $listeners |
+              Select-Object -ExpandProperty OwningProcess -Unique |
+              ForEach-Object {
+                Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+          function Assert-PortForwardStarted {
+            param(
+              [System.Diagnostics.Process]$Process,
+              [string]$Name,
+              [string]$StdOutLog,
+              [string]$StdErrLog
+            )
+
+            Start-Sleep -Seconds 3
+            if (-not $Process.HasExited) {
+              return
+            }
+
+            Write-Host "$Name port-forward exited immediately"
+            if (Test-Path $StdOutLog) {
+              Write-Host "--- $Name stdout ---"
+              Get-Content $StdOutLog
+            }
+            if (Test-Path $StdErrLog) {
+              Write-Host "--- $Name stderr ---"
+              Get-Content $StdErrLog
+            }
+            Write-Error "$Name port-forward failed to start"
+          }
+
+          function Wait-HttpReady {
+            param(
+              [string]$Name,
+              [string]$Url,
+              [int]$Attempts = 20,
+              [string]$StdOutLog = '',
+              [string]$StdErrLog = ''
+            )
+
+            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
+              if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
+                Write-Host "$Name ready with status $statusCode at $Url"
+                return
+              }
+
+              Write-Host ("Attempt {0}: waiting for {1} at {2}" -f $attempt, $Name, $Url)
+              Start-Sleep -Seconds 3
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($StdOutLog) -and (Test-Path $StdOutLog)) {
+              Write-Host "--- $Name port-forward stdout ---"
+              Get-Content $StdOutLog
+            }
+            if (-not [string]::IsNullOrWhiteSpace($StdErrLog) -and (Test-Path $StdErrLog)) {
+              Write-Host "--- $Name port-forward stderr ---"
+              Get-Content $StdErrLog
+            }
+
+            Write-Error "$Name did not become ready at $Url"
+          }
+
+          $keycloakOut = Join-Path $env:RUNNER_TEMP 'validate-keycloak-port-forward.out.log'
+          $keycloakErr = Join-Path $env:RUNNER_TEMP 'validate-keycloak-port-forward.err.log'
+
+          Stop-PortListeners -Port 18080
+
+          $keycloak = $null
+          try {
+            $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
+
+            Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+            Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+
           function Assert-KeycloakPasswordGrant {
             param(
               [string]$Username,
@@ -222,6 +306,12 @@ jobs:
 
           if ($failures.Count -gt 0) {
             Write-Error ($failures -join "`n")
+          }
+          }
+          finally {
+            if ($null -ne $keycloak) {
+              Stop-Process -Id $keycloak.Id -Force -ErrorAction SilentlyContinue
+            }
           }
 
       - name: Seed staging automation actors
