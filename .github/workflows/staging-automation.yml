@@ -1,0 +1,554 @@
+name: Staging Automation
+
+on:
+  push:
+    branches:
+      - staging
+    paths:
+      - .github/workflows/staging-automation.yml
+      - .github/workflows/cd.yml
+      - automation/**
+      - services/fastapi/**
+      - infra/k8s/overlays/staging/fastapi/**
+      - infra/k8s/overlays/staging/nginx/**
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Which automation suite to run
+        required: true
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - load
+
+jobs:
+  staging-automation:
+    name: Run staging automation
+    runs-on: self-hosted
+    environment: staging
+    env:
+      STAGING_KUBECONFIG_PATH: ${{ vars.STAGING_KUBECONFIG_PATH }}
+      STAGING_MINIKUBE_HOME: ${{ vars.STAGING_MINIKUBE_HOME }}
+      MEDITRACK_BASE_URL: http://127.0.0.1:18000
+      MEDITRACK_KEYCLOAK_BASE_URL: http://127.0.0.1:18080
+      MEDITRACK_KEYCLOAK_REALM: ${{ vars.STAGING_KEYCLOAK_REALM || 'meditrack-staging' }}
+      MEDITRACK_KEYCLOAK_CLIENT_ID: ${{ vars.STAGING_KEYCLOAK_CLIENT_ID || 'meditrack-backend' }}
+      MEDITRACK_DOCTOR_USERNAME: ${{ vars.STAGING_DOCTOR_USERNAME || 'doctor_user' }}
+      MEDITRACK_PHARMACIST_USERNAME: ${{ vars.STAGING_PHARMACIST_USERNAME || 'pharmacist_stage' }}
+      MEDITRACK_PATIENT_USERNAME: ${{ vars.STAGING_PATIENT_USERNAME || 'patient_stage' }}
+      MEDITRACK_KEYCLOAK_CLIENT_SECRET: ${{ secrets.STAGING_KEYCLOAK_CLIENT_SECRET }}
+      MEDITRACK_DOCTOR_PASSWORD: ${{ secrets.STAGING_DOCTOR_PASSWORD }}
+      MEDITRACK_PHARMACIST_PASSWORD: ${{ secrets.STAGING_PHARMACIST_PASSWORD }}
+      MEDITRACK_PATIENT_PASSWORD: ${{ secrets.STAGING_PATIENT_PASSWORD }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Resolve suite
+        id: resolve-suite
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $suite = 'smoke'
+          if ('${{ github.event_name }}' -eq 'workflow_dispatch' -and -not [string]::IsNullOrWhiteSpace('${{ inputs.suite }}')) {
+            $suite = '${{ inputs.suite }}'
+          }
+          "suite=$suite" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          Write-Host "Resolved automation suite: $suite"
+
+      - name: Bootstrap minikube context
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $kubeConfigPath = $env:STAGING_KUBECONFIG_PATH
+          if ([string]::IsNullOrWhiteSpace($kubeConfigPath)) {
+            $kubeDir = Join-Path $env:USERPROFILE '.kube'
+            $kubeConfigPath = Join-Path $kubeDir 'config'
+          } else {
+            $kubeDir = Split-Path -Parent $kubeConfigPath
+          }
+
+          New-Item -ItemType Directory -Force -Path $kubeDir | Out-Null
+          "KUBECONFIG=$kubeConfigPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $env:KUBECONFIG = $kubeConfigPath
+
+          if (-not [string]::IsNullOrWhiteSpace($env:STAGING_MINIKUBE_HOME)) {
+            "MINIKUBE_HOME=$($env:STAGING_MINIKUBE_HOME)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            $env:MINIKUBE_HOME = $env:STAGING_MINIKUBE_HOME
+          }
+
+          minikube update-context -p minikube
+          kubectl config use-context minikube
+          kubectl get namespace meditrack-staging
+
+      - name: Wait for deployed staging image
+        if: ${{ github.event_name == 'push' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $shortSha = '${{ github.sha }}'.Substring(0, 7)
+          $expectedImage = "ghcr.io/aryasutabaswara/meditrack-fastapi:staging-$shortSha"
+          Write-Host "Waiting for staging deployment image: $expectedImage"
+
+          for ($attempt = 1; $attempt -le 90; $attempt++) {
+            $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}' 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host $currentImage
+                Write-Host ("Attempt {0}: unable to read current deployment image yet" -f $attempt)
+            }
+            elseif ($currentImage -eq $expectedImage) {
+              Write-Host "Staging deployment now runs $currentImage"
+              exit 0
+            }
+            else {
+                Write-Host ("Attempt {0}: current image is {1}" -f $attempt, $currentImage)
+            }
+
+            Start-Sleep -Seconds 10
+          }
+
+          Write-Error "Timed out waiting for staging deployment image $expectedImage"
+
+      - name: Validate smoke secrets
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Resolve-KeycloakClientSecret {
+            if (-not [string]::IsNullOrWhiteSpace($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)) {
+              return $env:MEDITRACK_KEYCLOAK_CLIENT_SECRET
+            }
+
+            $encodedSecret = kubectl get secret staging-fastapi-secrets -n meditrack-staging -o jsonpath='{.data.KEYCLOAK_CLIENT_SECRET}' 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host $encodedSecret
+              return $null
+            }
+            if ([string]::IsNullOrWhiteSpace($encodedSecret)) {
+              return $null
+            }
+
+            $decodedSecret = [System.Text.Encoding]::UTF8.GetString(
+              [System.Convert]::FromBase64String($encodedSecret)
+            )
+            $env:MEDITRACK_KEYCLOAK_CLIENT_SECRET = $decodedSecret
+            return $decodedSecret
+          }
+
+          $resolvedKeycloakSecret = Resolve-KeycloakClientSecret
+          if ([string]::IsNullOrWhiteSpace($resolvedKeycloakSecret)) {
+            Write-Error 'Missing Keycloak client secret. Set STAGING_KEYCLOAK_CLIENT_SECRET in GitHub Environment staging or populate KEYCLOAK_CLIENT_SECRET in Kubernetes secret staging-fastapi-secrets.'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_DOCTOR_PASSWORD)) {
+            Write-Error 'Missing GitHub secret STAGING_DOCTOR_PASSWORD'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_PHARMACIST_PASSWORD)) {
+            Write-Error 'Missing GitHub secret STAGING_PHARMACIST_PASSWORD'
+          }
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_PATIENT_PASSWORD)) {
+            Write-Error 'Missing GitHub secret STAGING_PATIENT_PASSWORD'
+          }
+
+      - name: Validate staging actor credentials
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Stop-PortListeners {
+            param([int]$Port)
+
+            $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+            if ($null -eq $listeners) {
+              return
+            }
+
+            $listeners |
+              Select-Object -ExpandProperty OwningProcess -Unique |
+              ForEach-Object {
+                Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+          function Assert-PortForwardStarted {
+            param(
+              [System.Diagnostics.Process]$Process,
+              [string]$Name,
+              [string]$StdOutLog,
+              [string]$StdErrLog
+            )
+
+            Start-Sleep -Seconds 3
+            if (-not $Process.HasExited) {
+              return
+            }
+
+            Write-Host "$Name port-forward exited immediately"
+            if (Test-Path $StdOutLog) {
+              Write-Host "--- $Name stdout ---"
+              Get-Content $StdOutLog
+            }
+            if (Test-Path $StdErrLog) {
+              Write-Host "--- $Name stderr ---"
+              Get-Content $StdErrLog
+            }
+            Write-Error "$Name port-forward failed to start"
+          }
+
+          function Wait-HttpReady {
+            param(
+              [string]$Name,
+              [string]$Url,
+              [int]$Attempts = 20,
+              [string]$StdOutLog = '',
+              [string]$StdErrLog = ''
+            )
+
+            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
+              if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
+                Write-Host "$Name ready with status $statusCode at $Url"
+                return
+              }
+
+              Write-Host ("Attempt {0}: waiting for {1} at {2}" -f $attempt, $Name, $Url)
+              Start-Sleep -Seconds 3
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($StdOutLog) -and (Test-Path $StdOutLog)) {
+              Write-Host "--- $Name port-forward stdout ---"
+              Get-Content $StdOutLog
+            }
+            if (-not [string]::IsNullOrWhiteSpace($StdErrLog) -and (Test-Path $StdErrLog)) {
+              Write-Host "--- $Name port-forward stderr ---"
+              Get-Content $StdErrLog
+            }
+
+            Write-Error "$Name did not become ready at $Url"
+          }
+
+          $keycloakOut = Join-Path $env:RUNNER_TEMP 'validate-keycloak-port-forward.out.log'
+          $keycloakErr = Join-Path $env:RUNNER_TEMP 'validate-keycloak-port-forward.err.log'
+
+          Stop-PortListeners -Port 18080
+
+          $keycloak = $null
+          try {
+            $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
+
+            Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+            Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+
+          function Assert-KeycloakPasswordGrant {
+            param(
+              [string]$Username,
+              [string]$Password,
+              [string]$ActorName
+            )
+
+            $tokenUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)/protocol/openid-connect/token"
+            $curlArgs = @(
+              '--silent'
+              '--show-error'
+              '--location'
+              '--request'
+              'POST'
+              $tokenUrl
+              '--header'
+              'Content-Type: application/x-www-form-urlencoded'
+              '--data-urlencode'
+              'grant_type=password'
+              '--data-urlencode'
+              "client_id=$($env:MEDITRACK_KEYCLOAK_CLIENT_ID)"
+              '--data-urlencode'
+              "client_secret=$($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)"
+              '--data-urlencode'
+              "username=$Username"
+              '--data-urlencode'
+              "password=$Password"
+            )
+            $response = & curl.exe @curlArgs
+
+            if ($LASTEXITCODE -ne 0) {
+              return "Keycloak password grant request failed for $ActorName ($Username)"
+            }
+
+            $payload = $response | ConvertFrom-Json
+            if ($null -eq $payload.access_token) {
+              $errorCode = if ($null -ne $payload.error) { $payload.error } else { 'unknown_error' }
+              $errorDescription = if ($null -ne $payload.error_description) { $payload.error_description } else { 'No error description returned' }
+              return "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription"
+            }
+
+            Write-Host "Keycloak password grant succeeded for $ActorName ($Username)"
+            return $null
+          }
+
+          $failures = @()
+
+          $doctorFailure = Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
+          if (-not [string]::IsNullOrWhiteSpace($doctorFailure)) {
+            $failures += $doctorFailure
+          }
+
+          $pharmacistFailure = Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PHARMACIST_USERNAME -Password $env:MEDITRACK_PHARMACIST_PASSWORD -ActorName 'pharmacist'
+          if (-not [string]::IsNullOrWhiteSpace($pharmacistFailure)) {
+            $failures += $pharmacistFailure
+          }
+
+          $patientFailure = Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PATIENT_USERNAME -Password $env:MEDITRACK_PATIENT_PASSWORD -ActorName 'patient'
+          if (-not [string]::IsNullOrWhiteSpace($patientFailure)) {
+            $failures += $patientFailure
+          }
+
+          if ($failures.Count -gt 0) {
+            Write-Error ($failures -join "`n")
+          }
+          }
+          finally {
+            if ($null -ne $keycloak) {
+              Stop-Process -Id $keycloak.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+      - name: Seed staging automation actors
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $actors = @(
+            @{
+              username = $env:MEDITRACK_DOCTOR_USERNAME
+              password = $env:MEDITRACK_DOCTOR_PASSWORD
+              role = 'doctor'
+              email = 'doctor@meditrack.staging'
+              full_name = 'Dr. MediTrack Staging'
+              phone = '+62-812-0000-0001'
+              sip_number = 'SIP-STAGING-DOCTOR'
+              specialization = 'General Medicine'
+            }
+            @{
+              username = $env:MEDITRACK_PHARMACIST_USERNAME
+              password = $env:MEDITRACK_PHARMACIST_PASSWORD
+              role = 'pharmacist'
+              email = 'pharmacist@meditrack.staging'
+              full_name = 'MediTrack Staging Pharmacist'
+              phone = '+62-812-0000-0002'
+            }
+            @{
+              username = $env:MEDITRACK_PATIENT_USERNAME
+              password = $env:MEDITRACK_PATIENT_PASSWORD
+              role = 'patient'
+              email = 'patient@meditrack.staging'
+              full_name = 'Staging Patient'
+              phone = '+62-812-0000-0003'
+              nik = '3173000000000001'
+              blood_type = 'O+'
+              allergies = 'None'
+              emergency_contact = 'Staging Family'
+            }
+          )
+
+          $actorsJson = $actors | ConvertTo-Json -Depth 5
+          $actorsBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($actorsJson))
+
+          kubectl rollout status deployment/staging-fastapi -n meditrack-staging --timeout=180s
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error 'Staging FastAPI deployment did not become ready before actor seeding'
+          }
+
+          $podName = kubectl get pod -n meditrack-staging -l app=fastapi -o jsonpath='{.items[0].metadata.name}'
+          if ([string]::IsNullOrWhiteSpace($podName)) {
+            Write-Error 'Unable to resolve staging FastAPI pod for actor seeding'
+          }
+
+          kubectl exec -n meditrack-staging $podName -- python /app/scripts/seed_staging_actors.py --actors-json-base64 $actorsBase64
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error 'Failed to seed staging automation actors'
+          }
+
+      - name: Set up Node.js
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: automation/package-lock.json
+
+      - name: Install automation dependencies
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+        working-directory: automation
+        run: npm ci
+
+      - name: Set up Python
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Locust dependencies
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
+        working-directory: automation
+        run: pip install -r load/requirements.txt
+
+      - name: Run staging automation suite
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' || steps.resolve-suite.outputs.suite == 'load' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Stop-PortListeners {
+            param([int]$Port)
+
+            $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+            if ($null -eq $listeners) {
+              return
+            }
+
+            $listeners |
+              Select-Object -ExpandProperty OwningProcess -Unique |
+              ForEach-Object {
+                Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+          function Assert-PortForwardStarted {
+            param(
+              [System.Diagnostics.Process]$Process,
+              [string]$Name,
+              [string]$StdOutLog,
+              [string]$StdErrLog
+            )
+
+            Start-Sleep -Seconds 3
+            if (-not $Process.HasExited) {
+              return
+            }
+
+            Write-Host "$Name port-forward exited immediately"
+            if (Test-Path $StdOutLog) {
+              Write-Host "--- $Name stdout ---"
+              Get-Content $StdOutLog
+            }
+            if (Test-Path $StdErrLog) {
+              Write-Host "--- $Name stderr ---"
+              Get-Content $StdErrLog
+            }
+            Write-Error "$Name port-forward failed to start"
+          }
+
+          function Wait-HttpReady {
+            param(
+              [string]$Name,
+              [string]$Url,
+              [int]$Attempts = 20,
+              [string]$StdOutLog = '',
+              [string]$StdErrLog = ''
+            )
+
+            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
+              if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
+                Write-Host "$Name ready with status $statusCode at $Url"
+                return
+              }
+
+              Write-Host ("Attempt {0}: waiting for {1} at {2}" -f $attempt, $Name, $Url)
+              Start-Sleep -Seconds 3
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($StdOutLog) -and (Test-Path $StdOutLog)) {
+              Write-Host "--- $Name port-forward stdout ---"
+              Get-Content $StdOutLog
+            }
+            if (-not [string]::IsNullOrWhiteSpace($StdErrLog) -and (Test-Path $StdErrLog)) {
+              Write-Host "--- $Name port-forward stderr ---"
+              Get-Content $StdErrLog
+            }
+
+            Write-Error "$Name did not become ready at $Url"
+          }
+
+          $suite = '${{ steps.resolve-suite.outputs.suite }}'
+          $fastapiOut = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.out.log'
+          $fastapiErr = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.err.log'
+          $keycloakOut = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.out.log'
+          $keycloakErr = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.err.log'
+
+          Stop-PortListeners -Port 18000
+          Stop-PortListeners -Port 18080
+
+          $fastapi = $null
+          $keycloak = $null
+          try {
+            $fastapi = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $fastapiOut -RedirectStandardError $fastapiErr -PassThru -WindowStyle Hidden
+            $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
+
+            Assert-PortForwardStarted -Process $fastapi -Name 'FastAPI' -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+
+            Wait-HttpReady -Name 'FastAPI health endpoint' -Url "$($env:MEDITRACK_BASE_URL)/api/v1/health" -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+
+            if ($suite -eq 'smoke') {
+              Push-Location automation
+              try {
+                npm run test:smoke
+              }
+              finally {
+                Pop-Location
+              }
+            }
+            elseif ($suite -eq 'load') {
+              Push-Location automation
+              try {
+                locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host $env:MEDITRACK_BASE_URL --html locust-report.html --csv locust-report
+              }
+              finally {
+                Pop-Location
+              }
+            }
+            else {
+              Write-Error "Unsupported automation suite: $suite"
+            }
+          }
+          finally {
+            foreach ($process in @($fastapi, $keycloak)) {
+              if ($null -ne $process) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+              }
+            }
+          }
+
+      - name: Upload Playwright report
+        if: ${{ always() && steps.resolve-suite.outputs.suite == 'smoke' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: automation/playwright-report
+
+      - name: Upload Locust report
+        if: ${{ always() && steps.resolve-suite.outputs.suite == 'load' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: locust-report
+          path: |
+            automation/locust-report.html
+            automation/locust-report_stats.csv
+            automation/locust-report_failures.csv
+            automation/locust-report_exceptions.csv
+
+      - name: Upload port-forward logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-port-forward-logs
+          path: |
+            ${{ runner.temp }}/staging-fastapi-port-forward.out.log
+            ${{ runner.temp }}/staging-fastapi-port-forward.err.log
+            ${{ runner.temp }}/staging-keycloak-port-forward.out.log
+            ${{ runner.temp }}/staging-keycloak-port-forward.err.log

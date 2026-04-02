@@ -8,6 +8,8 @@ on:
       - "feat/**"
       - "fix/**"
       - "chore/**"
+    paths-ignore:
+      - infra/k8s/overlays/staging/kustomization.yaml
     tags:
       - "v*"
   pull_request:
@@ -49,7 +51,7 @@ jobs:
           cache-dependency-path: services/fastapi/requirements.txt
 
       - name: Install lint dependencies
-        run: pip install ruff black
+        run: pip install ruff==0.4.1 black==24.3.0
 
       - name: Run Ruff linter
         run: ruff check app/ tests/

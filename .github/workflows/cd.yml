@@ -1,0 +1,253 @@
+name: CD (GitOps)
+
+on:
+  push:
+    branches:
+      - staging
+    paths-ignore:
+      - infra/k8s/overlays/staging/kustomization.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-manifest:
+    name: Update K8s Manifest
+    runs-on: ubuntu-latest
+    outputs:
+      expected_image: ${{ steps.capture-image.outputs.expected_image }}
+    permissions:
+      contents: write
+      packages: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Kustomize
+        run: |
+          curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/
+
+      - name: Set source SHA
+        run: |
+          SOURCE_SHA="$GITHUB_SHA"
+          echo "SOURCE_SHA=$SOURCE_SHA" >> "$GITHUB_ENV"
+          echo "SHORT_SHA=${SOURCE_SHA::7}" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wait for staging image in GHCR
+        run: |
+          image="ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${SHORT_SHA}"
+          for attempt in $(seq 1 90); do
+            if docker manifest inspect "$image" >/dev/null 2>&1; then
+              echo "Image is available: $image"
+              exit 0
+            fi
+            echo "Attempt $attempt: waiting for $image"
+            sleep 10
+          done
+          echo "Image not found in GHCR: $image" >&2
+          exit 1
+
+      - name: Update Staging Manifest Image Tag
+        run: |
+          cd infra/k8s/overlays/staging
+          kustomize edit set image ghcr.io/aryasutabaswara/meditrack-fastapi=ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${SHORT_SHA}
+
+      - name: Capture expected image
+        id: capture-image
+        run: echo "expected_image=ghcr.io/aryasutabaswara/meditrack-fastapi:staging-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and Push Manifest Changes
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git add infra/k8s/overlays/staging/kustomization.yaml
+          git diff --cached --quiet && exit 0
+          git commit -m "chore(gitops): update staging image tag to staging-${SHORT_SHA}"
+          git push origin ${{ github.ref_name }}
+
+  verify-staging:
+    name: Verify Staging
+    runs-on: self-hosted
+    needs: update-manifest
+    env:
+      STAGING_KUBECONFIG_PATH: ${{ vars.STAGING_KUBECONFIG_PATH }}
+      STAGING_MINIKUBE_HOME: ${{ vars.STAGING_MINIKUBE_HOME }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: staging
+
+      - name: Verify runner environment
+        shell: cmd
+        run: |
+          echo RUNNER_OS=%RUNNER_OS%
+          echo RUNNER_ARCH=%RUNNER_ARCH%
+          echo USERPROFILE=%USERPROFILE%
+          echo KUBECONFIG=%KUBECONFIG%
+          echo STAGING_KUBECONFIG_PATH=%STAGING_KUBECONFIG_PATH%
+          echo STAGING_MINIKUBE_HOME=%STAGING_MINIKUBE_HOME%
+          where powershell
+          where kubectl
+          where minikube
+          ver
+
+      - name: Bootstrap minikube context
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $kubeConfigPath = $env:STAGING_KUBECONFIG_PATH
+          if ([string]::IsNullOrWhiteSpace($kubeConfigPath)) {
+            $kubeDir = Join-Path $env:USERPROFILE '.kube'
+            $kubeConfigPath = Join-Path $kubeDir 'config'
+          } else {
+            $kubeDir = Split-Path -Parent $kubeConfigPath
+          }
+
+          New-Item -ItemType Directory -Force -Path $kubeDir | Out-Null
+          "KUBECONFIG=$kubeConfigPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          $env:KUBECONFIG = $kubeConfigPath
+
+          if (-not [string]::IsNullOrWhiteSpace($env:STAGING_MINIKUBE_HOME)) {
+            "MINIKUBE_HOME=$($env:STAGING_MINIKUBE_HOME)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            $env:MINIKUBE_HOME = $env:STAGING_MINIKUBE_HOME
+          }
+
+          Write-Host "Using kubeconfig: $kubeConfigPath"
+          if (-not [string]::IsNullOrWhiteSpace($env:MINIKUBE_HOME)) {
+            Write-Host "Using MINIKUBE_HOME: $($env:MINIKUBE_HOME)"
+          }
+          if (Test-Path $kubeConfigPath) {
+            Write-Host 'Existing kubeconfig found'
+          } else {
+            Write-Host 'No kubeconfig found yet, minikube will create one'
+          }
+
+          $profileList = minikube profile list 2>&1
+          Write-Host $profileList
+          minikube update-context -p minikube
+          kubectl config use-context minikube
+          kubectl config current-context
+
+      - name: Verify kubectl connectivity
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Write-Host "Current kubectl context:"
+          kubectl config current-context
+
+          Write-Host "Checking cluster access..."
+          $clusterInfo = kubectl cluster-info 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host $clusterInfo
+            Write-Error 'kubectl cluster-info failed on the self-hosted runner'
+          }
+          if (($clusterInfo | Out-String) -match 'Authentication required|/login\?from=|Forbidden') {
+            Write-Host $clusterInfo
+            Write-Error 'kubectl is pointing at an authenticated web endpoint instead of the Kubernetes API server'
+          }
+
+          Write-Host "Checking namespace access..."
+          $nsCheck = kubectl get namespace meditrack-staging 2>&1
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host $nsCheck
+            Write-Error 'kubectl cannot access namespace meditrack-staging from the self-hosted runner'
+          }
+
+      - name: Wait for ArgoCD sync target revision
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $expectedTag = '${{ needs.update-manifest.outputs.expected_image }}'
+          if ([string]::IsNullOrWhiteSpace($expectedTag)) {
+            Write-Error 'Expected image output from update-manifest is empty'
+          }
+
+          $manifestFile = 'infra/k8s/overlays/staging/kustomization.yaml'
+          $manifestTagMatch = Select-String -Path $manifestFile -Pattern 'newTag:\s*(\S+)'
+          $desiredTag = $null
+          if ($manifestTagMatch) {
+            $desiredTag = "ghcr.io/aryasutabaswara/meditrack-fastapi:$($manifestTagMatch.Matches[0].Groups[1].Value)"
+            Write-Host "Latest checked-out staging manifest expects $desiredTag"
+          }
+
+          for ($attempt = 1; $attempt -le 60; $attempt++) {
+            $currentImage = kubectl get deployment staging-fastapi -n meditrack-staging -o jsonpath='{.spec.template.spec.containers[0].image}' 2>&1
+            if ($LASTEXITCODE -ne 0) {
+              Write-Host $currentImage
+              Write-Error 'kubectl failed while checking the staging-fastapi image'
+            }
+            if (($currentImage | Out-String) -match 'Authentication required|/login\?from=|Forbidden') {
+              Write-Host $currentImage
+              Write-Error 'kubectl request was redirected to a login page; verify the runner kubeconfig/context'
+            }
+            if ($currentImage -eq $expectedTag) {
+              Write-Host "Staging deployment now uses $currentImage"
+              exit 0
+            }
+            if ($desiredTag -and $currentImage -eq $desiredTag) {
+              Write-Host "Staging deployment already matches the latest checked-out manifest: $currentImage"
+              Write-Host "This run is treating the newer applied staging image as success."
+              exit 0
+            }
+            Write-Host "Attempt $attempt`: current image is $currentImage, waiting for $expectedTag"
+            Start-Sleep -Seconds 10
+          }
+          Write-Error "Timed out waiting for ArgoCD to deploy $expectedTag"
+
+      - name: Verify staging rollouts
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          kubectl rollout status deployment/staging-fastapi -n meditrack-staging --timeout=300s
+          kubectl rollout status deployment/staging-keycloak -n meditrack-staging --timeout=300s
+          kubectl rollout status deployment/staging-elasticsearch -n meditrack-staging --timeout=300s
+          kubectl rollout status deployment/staging-redis -n meditrack-staging --timeout=300s
+
+      - name: Verify staging health endpoint
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $stdoutLogPath = Join-Path $env:RUNNER_TEMP 'meditrack-fastapi-port-forward.out.log'
+          $stderrLogPath = Join-Path $env:RUNNER_TEMP 'meditrack-fastapi-port-forward.err.log'
+          $pfProcess = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $stdoutLogPath -RedirectStandardError $stderrLogPath -PassThru -WindowStyle Hidden
+          try {
+            for ($attempt = 1; $attempt -le 20; $attempt++) {
+              try {
+                $response = Invoke-WebRequest -Uri 'http://127.0.0.1:18000/api/v1/health' -UseBasicParsing -TimeoutSec 5
+                if ($response.Content -match '"status":"ok"') {
+                  exit 0
+                }
+              } catch {
+              }
+              Start-Sleep -Seconds 3
+            }
+            Write-Host 'Staging health endpoint did not become ready'
+            if (Test-Path $stdoutLogPath) { Get-Content $stdoutLogPath }
+            if (Test-Path $stderrLogPath) { Get-Content $stderrLogPath }
+            exit 1
+          }
+          finally {
+            if ($pfProcess -and -not $pfProcess.HasExited) {
+              Stop-Process -Id $pfProcess.Id -Force
+            }
+          }
+
+      - name: Verify reindex cronjob exists
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          kubectl get cronjob staging-fastapi-reindex -n meditrack-staging
