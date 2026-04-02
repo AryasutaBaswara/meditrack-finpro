@@ -115,6 +115,50 @@ jobs:
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
+
+          function Stop-PortListeners {
+            param([int]$Port)
+
+            $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+            if ($null -eq $listeners) {
+              return
+            }
+
+            $listeners |
+              Select-Object -ExpandProperty OwningProcess -Unique |
+              ForEach-Object {
+                Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+          function Assert-PortForwardStarted {
+            param(
+              [System.Diagnostics.Process]$Process,
+              [string]$Name,
+              [string]$StdOutLog,
+              [string]$StdErrLog
+            )
+
+            Start-Sleep -Seconds 3
+            if (-not $Process.HasExited) {
+              return
+            }
+
+            Write-Host "$Name port-forward exited immediately"
+            if (Test-Path $StdOutLog) {
+              Write-Host "--- $Name stdout ---"
+              Get-Content $StdOutLog
+            }
+            if (Test-Path $StdErrLog) {
+              Write-Host "--- $Name stderr ---"
+              Get-Content $StdErrLog
+            }
+            Write-Error "$Name port-forward failed to start"
+          }
+
+          Stop-PortListeners -Port 18000
+          Stop-PortListeners -Port 18080
+
           $fastapiOut = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.out.log'
           $fastapiErr = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.err.log'
           $keycloakOut = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.out.log'
@@ -122,6 +166,9 @@ jobs:
 
           $fastapi = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $fastapiOut -RedirectStandardError $fastapiErr -PassThru -WindowStyle Hidden
           $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
+
+          Assert-PortForwardStarted -Process $fastapi -Name 'FastAPI' -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+          Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
 
           "FASTAPI_PORT_FORWARD_PID=$($fastapi.Id)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           "KEYCLOAK_PORT_FORWARD_PID=$($keycloak.Id)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
