@@ -166,14 +166,27 @@ jobs:
             )
 
             $tokenUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)/protocol/openid-connect/token"
-            $response = curl.exe --silent --show-error --location \
-              --request POST $tokenUrl \
-              --header "Content-Type: application/x-www-form-urlencoded" \
-              --data-urlencode "grant_type=password" \
-              --data-urlencode "client_id=$($env:MEDITRACK_KEYCLOAK_CLIENT_ID)" \
-              --data-urlencode "client_secret=$($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)" \
-              --data-urlencode "username=$Username" \
-              --data-urlencode "password=$Password"
+            $curlArgs = @(
+              '--silent'
+              '--show-error'
+              '--location'
+              '--request'
+              'POST'
+              $tokenUrl
+              '--header'
+              'Content-Type: application/x-www-form-urlencoded'
+              '--data-urlencode'
+              'grant_type=password'
+              '--data-urlencode'
+              "client_id=$($env:MEDITRACK_KEYCLOAK_CLIENT_ID)"
+              '--data-urlencode'
+              "client_secret=$($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)"
+              '--data-urlencode'
+              "username=$Username"
+              '--data-urlencode'
+              "password=$Password"
+            )
+            $response = & curl.exe @curlArgs
 
             if ($LASTEXITCODE -ne 0) {
               Write-Error "Keycloak password grant request failed for $ActorName"
