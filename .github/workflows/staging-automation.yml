@@ -384,16 +384,18 @@ jobs:
         working-directory: automation
         run: npm ci
 
-      # - name: Set up Python
-      #   if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
-      #   uses: actions/setup-python@v5
-      #   with:
-      #     python-version: "3.12"
+      - name: Verify Python runtime
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python --version
+          python -m pip --version
 
       - name: Install Locust dependencies
         if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
         working-directory: automation
-        run: pip install -r load/requirements.txt
+        run: python -m pip install -r load/requirements.txt
 
       - name: Run staging automation suite
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' || steps.resolve-suite.outputs.suite == 'load' }}
@@ -506,7 +508,7 @@ jobs:
             elseif ($suite -eq 'load') {
               Push-Location automation
               try {
-                locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host $env:MEDITRACK_BASE_URL --html locust-report.html --csv locust-report
+                python -m locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host $env:MEDITRACK_BASE_URL --html locust-report.html --csv locust-report
               }
               finally {
                 Pop-Location
