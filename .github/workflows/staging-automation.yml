@@ -428,12 +428,18 @@ jobs:
               [string]$Name,
               [string]$Url,
               [int]$Attempts = 20,
+              [string[]]$Headers = @(),
               [string]$StdOutLog = '',
               [string]$StdErrLog = ''
             )
 
             for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
+              $curlArgs = @('--silent', '--show-error', '--output', 'NUL', '--write-out', '%{http_code}', '--max-time', '5', '--noproxy', '*')
+              foreach ($header in $Headers) {
+                $curlArgs += @('--header', $header)
+              }
+              $curlArgs += $Url
+              $statusCode = & curl.exe @curlArgs
               if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
                 Write-Host "$Name ready with status $statusCode at $Url"
                 return
@@ -929,7 +935,13 @@ jobs:
               Assert-PortForwardStarted -Process $fastapi -Name 'FastAPI' -StdOutLog $fastapiOut -StdErrLog $fastapiErr
             }
             else {
-              $ingressAddress = kubectl get ingress -n meditrack-staging -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'
+              $ingressAddress = kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}'
+              if ([string]::IsNullOrWhiteSpace($ingressAddress)) {
+                $ingressAddress = kubectl get svc ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+              }
+              if ([string]::IsNullOrWhiteSpace($ingressAddress)) {
+                $ingressAddress = kubectl get ingress -n meditrack-staging -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'
+              }
               if ([string]::IsNullOrWhiteSpace($ingressAddress)) {
                 $ingressAddress = kubectl get ingress -n meditrack-staging -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}'
               }
