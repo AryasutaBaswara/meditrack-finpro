@@ -34,7 +34,7 @@ jobs:
       MEDITRACK_KEYCLOAK_BASE_URL: http://127.0.0.1:18080
       MEDITRACK_KEYCLOAK_REALM: ${{ vars.STAGING_KEYCLOAK_REALM || 'meditrack-staging' }}
       MEDITRACK_KEYCLOAK_CLIENT_ID: ${{ vars.STAGING_KEYCLOAK_CLIENT_ID || 'meditrack-backend' }}
-      MEDITRACK_DOCTOR_USERNAME: ${{ vars.STAGING_DOCTOR_USERNAME || 'doctor_user' }}
+      MEDITRACK_DOCTOR_USERNAME: ${{ vars.STAGING_DOCTOR_USERNAME || 'doctor_stage' }}
       MEDITRACK_PHARMACIST_USERNAME: ${{ vars.STAGING_PHARMACIST_USERNAME || 'pharmacist_stage' }}
       MEDITRACK_PATIENT_USERNAME: ${{ vars.STAGING_PATIENT_USERNAME || 'patient_stage' }}
       MEDITRACK_KEYCLOAK_CLIENT_SECRET: ${{ secrets.STAGING_KEYCLOAK_CLIENT_SECRET }}
@@ -111,8 +111,8 @@ jobs:
 
           Write-Error "Timed out waiting for staging deployment image $expectedImage"
 
-      - name: Validate smoke secrets
-        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
+      - name: Prepare automation auth secrets
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' || steps.resolve-suite.outputs.suite == 'load' }}
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
@@ -145,10 +145,10 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_DOCTOR_PASSWORD)) {
             Write-Error 'Missing GitHub secret STAGING_DOCTOR_PASSWORD'
           }
-          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_PHARMACIST_PASSWORD)) {
+          if ('${{ steps.resolve-suite.outputs.suite }}' -eq 'smoke' -and [string]::IsNullOrWhiteSpace($env:MEDITRACK_PHARMACIST_PASSWORD)) {
             Write-Error 'Missing GitHub secret STAGING_PHARMACIST_PASSWORD'
           }
-          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_PATIENT_PASSWORD)) {
+          if ('${{ steps.resolve-suite.outputs.suite }}' -eq 'smoke' -and [string]::IsNullOrWhiteSpace($env:MEDITRACK_PATIENT_PASSWORD)) {
             Write-Error 'Missing GitHub secret STAGING_PATIENT_PASSWORD'
           }
 
@@ -371,6 +371,130 @@ jobs:
             Write-Error 'Failed to seed staging automation actors'
           }
 
+      - name: Validate load doctor credential
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Stop-PortListeners {
+            param([int]$Port)
+
+            $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+            if ($null -eq $listeners) {
+              return
+            }
+
+            $listeners |
+              Select-Object -ExpandProperty OwningProcess -Unique |
+              ForEach-Object {
+                Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+          function Assert-PortForwardStarted {
+            param(
+              [System.Diagnostics.Process]$Process,
+              [string]$Name,
+              [string]$StdOutLog,
+              [string]$StdErrLog
+            )
+
+            Start-Sleep -Seconds 3
+            if (-not $Process.HasExited) {
+              return
+            }
+
+            Write-Host "$Name port-forward exited immediately"
+            if (Test-Path $StdOutLog) { Get-Content $StdOutLog }
+            if (Test-Path $StdErrLog) { Get-Content $StdErrLog }
+            Write-Error "$Name port-forward failed to start"
+          }
+
+          function Wait-HttpReady {
+            param(
+              [string]$Name,
+              [string]$Url,
+              [int]$Attempts = 20,
+              [string]$StdOutLog = '',
+              [string]$StdErrLog = ''
+            )
+
+            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
+              if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
+                Write-Host "$Name ready with status $statusCode at $Url"
+                return
+              }
+              Start-Sleep -Seconds 3
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($StdOutLog) -and (Test-Path $StdOutLog)) { Get-Content $StdOutLog }
+            if (-not [string]::IsNullOrWhiteSpace($StdErrLog) -and (Test-Path $StdErrLog)) { Get-Content $StdErrLog }
+            Write-Error "$Name did not become ready at $Url"
+          }
+
+          function Assert-KeycloakPasswordGrant {
+            param(
+              [string]$Username,
+              [string]$Password,
+              [string]$ActorName
+            )
+
+            $tokenUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)/protocol/openid-connect/token"
+            $curlArgs = @(
+              '--silent'
+              '--show-error'
+              '--location'
+              '--request'
+              'POST'
+              $tokenUrl
+              '--header'
+              'Content-Type: application/x-www-form-urlencoded'
+              '--data-urlencode'
+              'grant_type=password'
+              '--data-urlencode'
+              "client_id=$($env:MEDITRACK_KEYCLOAK_CLIENT_ID)"
+              '--data-urlencode'
+              "client_secret=$($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)"
+              '--data-urlencode'
+              "username=$Username"
+              '--data-urlencode'
+              "password=$Password"
+            )
+            $response = & curl.exe @curlArgs
+
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Keycloak password grant request failed for $ActorName ($Username)"
+            }
+
+            $payload = $response | ConvertFrom-Json
+            if ($null -eq $payload.access_token) {
+              $errorCode = if ($null -ne $payload.error) { $payload.error } else { 'unknown_error' }
+              $errorDescription = if ($null -ne $payload.error_description) { $payload.error_description } else { 'No error description returned' }
+              Write-Error "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription"
+            }
+
+            Write-Host "Keycloak password grant succeeded for $ActorName ($Username)"
+          }
+
+          $keycloakOut = Join-Path $env:RUNNER_TEMP 'validate-load-keycloak-port-forward.out.log'
+          $keycloakErr = Join-Path $env:RUNNER_TEMP 'validate-load-keycloak-port-forward.err.log'
+          Stop-PortListeners -Port 18080
+
+          $keycloak = $null
+          try {
+            $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
+            Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+            Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+            Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
+          }
+          finally {
+            if ($null -ne $keycloak) {
+              Stop-Process -Id $keycloak.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
+
       - name: Set up Node.js
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         uses: actions/setup-node@v4
@@ -395,7 +519,7 @@ jobs:
       - name: Install Locust dependencies
         if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
         working-directory: automation
-        run: pip install -r load/requirements.txt
+        run: python -m pip install -r load/requirements.txt
 
       - name: Run staging automation suite
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' || steps.resolve-suite.outputs.suite == 'load' }}
@@ -508,7 +632,7 @@ jobs:
             elseif ($suite -eq 'load') {
               Push-Location automation
               try {
-                locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host $env:MEDITRACK_BASE_URL --html locust-report.html --csv locust-report
+                python -m locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host $env:MEDITRACK_BASE_URL --html locust-report.html --csv locust-report
               }
               finally {
                 Pop-Location
