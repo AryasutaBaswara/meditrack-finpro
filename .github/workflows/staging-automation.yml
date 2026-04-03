@@ -384,11 +384,13 @@ jobs:
         working-directory: automation
         run: npm ci
 
-      # - name: Set up Python
-      #   if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
-      #   uses: actions/setup-python@v5
-      #   with:
-      #     python-version: "3.12"
+      - name: Verify Python runtime
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python --version
+          python -m pip --version
 
       - name: Install Locust dependencies
         if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
