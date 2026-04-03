@@ -20,7 +20,7 @@ class MediTrackStagingUser(HttpUser):
         realm = os.environ.get("MEDITRACK_KEYCLOAK_REALM", "meditrack-staging")
         client_id = os.environ.get("MEDITRACK_KEYCLOAK_CLIENT_ID", "meditrack-backend")
         client_secret = os.environ.get("MEDITRACK_KEYCLOAK_CLIENT_SECRET")
-        username = os.environ.get("MEDITRACK_DOCTOR_USERNAME", "doctor_user")
+        username = os.environ.get("MEDITRACK_DOCTOR_USERNAME", "doctor_stage")
         password = os.environ.get("MEDITRACK_DOCTOR_PASSWORD")
 
         if not client_secret:

@@ -61,7 +61,7 @@ export function getRuntimeConfig(): RuntimeConfig {
       "meditrack-backend",
     ),
     keycloakClientSecret: requireEnv("MEDITRACK_KEYCLOAK_CLIENT_SECRET"),
-    doctorUsername: requireEnv("MEDITRACK_DOCTOR_USERNAME", "doctor_user"),
+    doctorUsername: requireEnv("MEDITRACK_DOCTOR_USERNAME", "doctor_stage"),
     doctorPassword: requireEnv("MEDITRACK_DOCTOR_PASSWORD"),
     pharmacistUsername: requireEnv(
       "MEDITRACK_PHARMACIST_USERNAME",
