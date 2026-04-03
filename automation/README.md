@@ -37,7 +37,12 @@ npm run test:smoke
 
 ## Locust load test
 
-The load suite is read-only and targets search plus patient listing with a doctor token.
+The load suite is read-only and uses a doctor token to exercise these endpoints:
+
+- `GET /api/v1/drugs/search`
+- `GET /api/v1/drugs`
+- `GET /api/v1/patients`
+- `GET /api/v1/prescriptions`
 
 Required environment variables:
 

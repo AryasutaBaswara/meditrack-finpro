@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from typing import Any
 
 from locust import HttpUser, between, task
 
@@ -41,6 +42,22 @@ class MediTrackStagingUser(HttpUser):
             "Accept": "application/json",
         }
 
+    def _assert_success_envelope(self, response, *, expect_meta: bool = False) -> None:
+        if response.status_code != 200:
+            response.failure(f"unexpected status: {response.status_code}")
+            return
+
+        payload: dict[str, Any] = response.json()
+        if payload.get("error") is not None:
+            response.failure(f"unexpected envelope error: {payload['error']}")
+            return
+
+        if expect_meta and payload.get("meta") is None:
+            response.failure("expected pagination metadata in response envelope")
+            return
+
+        response.success()
+
     @task(3)
     def search_drugs(self) -> None:
         with self.client.get(
@@ -49,14 +66,17 @@ class MediTrackStagingUser(HttpUser):
             name="GET /api/v1/drugs/search",
             catch_response=True,
         ) as response:
-            if response.status_code != 200:
-                response.failure(f"unexpected status: {response.status_code}")
-                return
-            payload = response.json()
-            if payload.get("error") is not None:
-                response.failure(f"unexpected envelope error: {payload['error']}")
-                return
-            response.success()
+            self._assert_success_envelope(response)
+
+    @task(2)
+    def list_drugs(self) -> None:
+        with self.client.get(
+            "/api/v1/drugs?page=1&per_page=10",
+            headers=self.headers,
+            name="GET /api/v1/drugs",
+            catch_response=True,
+        ) as response:
+            self._assert_success_envelope(response, expect_meta=True)
 
     @task(1)
     def list_patients(self) -> None:
@@ -66,11 +86,14 @@ class MediTrackStagingUser(HttpUser):
             name="GET /api/v1/patients",
             catch_response=True,
         ) as response:
-            if response.status_code != 200:
-                response.failure(f"unexpected status: {response.status_code}")
-                return
-            payload = response.json()
-            if payload.get("error") is not None:
-                response.failure(f"unexpected envelope error: {payload['error']}")
-                return
-            response.success()
+            self._assert_success_envelope(response, expect_meta=True)
+
+    @task(1)
+    def list_prescriptions(self) -> None:
+        with self.client.get(
+            "/api/v1/prescriptions?page=1&per_page=10",
+            headers=self.headers,
+            name="GET /api/v1/prescriptions",
+            catch_response=True,
+        ) as response:
+            self._assert_success_envelope(response, expect_meta=True)
