@@ -21,6 +21,11 @@ on:
         options:
           - smoke
           - load
+      seed_load_dataset:
+        description: Seed or refresh the staging load dataset before running suite=load
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   staging-automation:
@@ -740,7 +745,7 @@ jobs:
           }
 
       - name: Seed load dataset
-        if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' && github.event_name == 'workflow_dispatch' && inputs.seed_load_dataset }}
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
