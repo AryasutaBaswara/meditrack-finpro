@@ -45,6 +45,9 @@ class MediTrackBaseUser(HttpUser):
             "Authorization": f"Bearer {access_token}",
             "Accept": "application/json",
         }
+        host_header = os.environ.get("MEDITRACK_HTTP_HOST_HEADER")
+        if host_header:
+            self.headers["Host"] = host_header
 
     def _assert_success_envelope(self, response, *, expect_meta: bool = False) -> None:
         if response.status_code != 200:

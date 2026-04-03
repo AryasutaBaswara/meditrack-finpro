@@ -12,7 +12,6 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 
@@ -43,9 +42,10 @@ def create_database_engine(
             "prepared_statement_name_func",
             lambda: f"__asyncpg_{uuid4()}__",
         )
-        kwargs.pop("pool_size", None)
-        kwargs.pop("max_overflow", None)
-        kwargs.setdefault("poolclass", NullPool)
+        kwargs.setdefault("pool_size", 5)
+        kwargs.setdefault("max_overflow", 10)
+        kwargs.setdefault("pool_recycle", 300)
+        kwargs.setdefault("pool_timeout", 30)
 
     return create_async_engine(
         resolved_database_url,

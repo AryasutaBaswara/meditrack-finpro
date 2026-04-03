@@ -197,12 +197,18 @@ jobs:
               [string]$Name,
               [string]$Url,
               [int]$Attempts = 20,
+              [string[]]$Headers = @(),
               [string]$StdOutLog = '',
               [string]$StdErrLog = ''
             )
 
             for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
+              $curlArgs = @('--silent', '--show-error', '--output', 'NUL', '--write-out', '%{http_code}', '--max-time', '5', '--noproxy', '*')
+              foreach ($header in $Headers) {
+                $curlArgs += @('--header', $header)
+              }
+              $curlArgs += $Url
+              $statusCode = & curl.exe @curlArgs
               if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
                 Write-Host "$Name ready with status $statusCode at $Url"
                 return
@@ -899,20 +905,42 @@ jobs:
           $fastapiErr = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.err.log'
           $keycloakOut = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.out.log'
           $keycloakErr = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.err.log'
+          $ingressHost = 'meditrack.staging.local'
+          $ingressAddress = ''
+          $fastapiHealthHeaders = @()
 
-          Stop-PortListeners -Port 18000
+          if ($suite -eq 'smoke') {
+            Stop-PortListeners -Port 18000
+          }
           Stop-PortListeners -Port 18080
 
           $fastapi = $null
           $keycloak = $null
           try {
-            $fastapi = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $fastapiOut -RedirectStandardError $fastapiErr -PassThru -WindowStyle Hidden
             $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
 
-            Assert-PortForwardStarted -Process $fastapi -Name 'FastAPI' -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            if ($suite -eq 'smoke') {
+              $fastapi = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $fastapiOut -RedirectStandardError $fastapiErr -PassThru -WindowStyle Hidden
+              Assert-PortForwardStarted -Process $fastapi -Name 'FastAPI' -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            }
+            else {
+              $ingressAddress = kubectl get ingress -n meditrack-staging -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'
+              if ([string]::IsNullOrWhiteSpace($ingressAddress)) {
+                $ingressAddress = kubectl get ingress -n meditrack-staging -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}'
+              }
+              if ([string]::IsNullOrWhiteSpace($ingressAddress)) {
+                Write-Error 'Unable to resolve staging ingress address for load suite'
+              }
+
+              $env:MEDITRACK_BASE_URL = "http://$ingressAddress"
+              $env:MEDITRACK_HTTP_HOST_HEADER = $ingressHost
+              $fastapiHealthHeaders = @("Host: $ingressHost")
+              Write-Host "Load suite targeting ingress $ingressAddress with Host header $ingressHost"
+            }
+
             Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
 
-            Wait-HttpReady -Name 'FastAPI health endpoint' -Url "$($env:MEDITRACK_BASE_URL)/api/v1/health" -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            Wait-HttpReady -Name 'FastAPI health endpoint' -Url "$($env:MEDITRACK_BASE_URL)/api/v1/health" -Headers $fastapiHealthHeaders -StdOutLog $fastapiOut -StdErrLog $fastapiErr
             Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
 
             if ($suite -eq 'smoke') {
