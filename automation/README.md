@@ -37,12 +37,18 @@ npm run test:smoke
 
 ## Locust load test
 
-The load suite is read-only and uses a doctor token to exercise these endpoints:
+The load suite is read-only and uses multiple actors so ownership rules are exercised correctly:
 
-- `GET /api/v1/drugs/search`
-- `GET /api/v1/drugs`
-- `GET /api/v1/patients`
-- `GET /api/v1/prescriptions`
+- Doctor actor: `GET /api/v1/drugs/search`, `GET /api/v1/drugs`, `GET /api/v1/patients`, `GET /api/v1/prescriptions` for the doctor's own data
+- Pharmacist actor: `GET /api/v1/prescriptions` across all prescriptions
+- Patient actor: `GET /api/v1/prescriptions` for the patient's own data
+
+The staging workflow also seeds a deterministic load dataset before the load suite runs. The default dataset target is:
+
+- 5 doctors total
+- 50 patients total
+- 3 pharmacists total
+- 400 prescriptions with 1-4 items each
 
 Required environment variables:
 
@@ -53,6 +59,10 @@ Required environment variables:
 - `MEDITRACK_KEYCLOAK_CLIENT_SECRET`
 - `MEDITRACK_DOCTOR_USERNAME`
 - `MEDITRACK_DOCTOR_PASSWORD`
+- `MEDITRACK_PHARMACIST_USERNAME`
+- `MEDITRACK_PHARMACIST_PASSWORD`
+- `MEDITRACK_PATIENT_USERNAME`
+- `MEDITRACK_PATIENT_PASSWORD`
 
 Local run example:
 
@@ -60,7 +70,12 @@ Local run example:
 $env:MEDITRACK_BASE_URL = 'http://127.0.0.1:18000'
 $env:MEDITRACK_KEYCLOAK_BASE_URL = 'http://127.0.0.1:18080'
 $env:MEDITRACK_KEYCLOAK_CLIENT_SECRET = '...'
+$env:MEDITRACK_DOCTOR_USERNAME = 'doctor_stage'
 $env:MEDITRACK_DOCTOR_PASSWORD = '...'
+$env:MEDITRACK_PHARMACIST_USERNAME = 'pharmacist_stage'
+$env:MEDITRACK_PHARMACIST_PASSWORD = '...'
+$env:MEDITRACK_PATIENT_USERNAME = 'patient_stage'
+$env:MEDITRACK_PATIENT_PASSWORD = '...'
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r load/requirements.txt
