@@ -218,7 +218,7 @@ jobs:
 
           function Get-KeycloakAdminToken {
             $tokenUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/master/protocol/openid-connect/token"
-            $response = & curl.exe --silent --show-error --location --request POST $tokenUrl --header 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'grant_type=password' --data-urlencode 'client_id=admin-cli' --data-urlencode 'username=admin' --data-urlencode 'password=admin'
+            $response = & curl.exe --silent --show-error --location --noproxy "*" --request POST $tokenUrl --header 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'grant_type=password' --data-urlencode 'client_id=admin-cli' --data-urlencode 'username=admin' --data-urlencode 'password=admin'
             if ($LASTEXITCODE -ne 0) {
               Write-Error 'Failed to obtain Keycloak admin token for password reconciliation'
             }
@@ -240,7 +240,7 @@ jobs:
             )
 
             $usersUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/admin/realms/$($env:MEDITRACK_KEYCLOAK_REALM)/users?username=$Username&exact=true"
-            $response = & curl.exe --silent --show-error --location --request GET $usersUrl --header "Authorization: Bearer $AccessToken"
+            $response = & curl.exe --silent --show-error --location --noproxy "*" --request GET $usersUrl --header "Authorization: Bearer $AccessToken"
             if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to query Keycloak user $Username"
             }
@@ -269,12 +269,74 @@ jobs:
             $userId = Find-KeycloakUserId -AccessToken $AccessToken -Username $Username
             $resetUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/admin/realms/$($env:MEDITRACK_KEYCLOAK_REALM)/users/$userId/reset-password"
             $body = @{ type = 'password'; value = $Password; temporary = $false } | ConvertTo-Json -Compress
-            & curl.exe --silent --show-error --location --request PUT $resetUrl --header "Authorization: Bearer $AccessToken" --header 'Content-Type: application/json' --data $body | Out-Null
+            $resetResponseFile = Join-Path $env:RUNNER_TEMP ("reset-{0}.json" -f $ActorName)
+            $statusCode = & curl.exe --silent --show-error --location --noproxy "*" --output $resetResponseFile --write-out "%{http_code}" --request PUT $resetUrl --header "Authorization: Bearer $AccessToken" --header 'Content-Type: application/json' --data $body
             if ($LASTEXITCODE -ne 0) {
               Write-Error "Failed to reset Keycloak password for $ActorName ($Username)"
             }
+            if ($statusCode -notin @('204', '200')) {
+              if (Test-Path $resetResponseFile) {
+                Get-Content $resetResponseFile
+              }
+              Write-Error "Unexpected status $statusCode while resetting Keycloak password for $ActorName ($Username)"
+            }
 
             Write-Host "Reconciled Keycloak password for $ActorName ($Username)"
+          }
+
+          function Assert-KeycloakPasswordGrant {
+            param(
+              [string]$Username,
+              [string]$Password,
+              [string]$ActorName,
+              [int]$Attempts = 5
+            )
+
+            $tokenUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)/protocol/openid-connect/token"
+
+            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+              $curlArgs = @(
+                '--silent'
+                '--show-error'
+                '--location'
+                '--noproxy'
+                '*'
+                '--request'
+                'POST'
+                $tokenUrl
+                '--header'
+                'Content-Type: application/x-www-form-urlencoded'
+                '--data-urlencode'
+                'grant_type=password'
+                '--data-urlencode'
+                "client_id=$($env:MEDITRACK_KEYCLOAK_CLIENT_ID)"
+                '--data-urlencode'
+                "client_secret=$($env:MEDITRACK_KEYCLOAK_CLIENT_SECRET)"
+                '--data-urlencode'
+                "username=$Username"
+                '--data-urlencode'
+                "password=$Password"
+              )
+              $response = & curl.exe @curlArgs
+
+              if ($LASTEXITCODE -ne 0) {
+                Write-Error "Keycloak password grant request failed for $ActorName ($Username)"
+              }
+
+              $payload = $response | ConvertFrom-Json
+              if ($null -ne $payload.access_token) {
+                Write-Host "Keycloak password grant succeeded for $ActorName ($Username)"
+                return
+              }
+
+              if ($attempt -lt $Attempts) {
+                Start-Sleep -Seconds 2
+              }
+            }
+
+            $errorCode = if ($null -ne $payload.error) { $payload.error } else { 'unknown_error' }
+            $errorDescription = if ($null -ne $payload.error_description) { $payload.error_description } else { 'No error description returned' }
+            Write-Error "Keycloak password grant failed for $ActorName ($Username) immediately after password reconciliation: $errorCode - $errorDescription"
           }
 
           $keycloakOut = Join-Path $env:RUNNER_TEMP 'reconcile-keycloak-port-forward.out.log'
@@ -289,10 +351,13 @@ jobs:
 
             $adminToken = Get-KeycloakAdminToken
             Reset-KeycloakPassword -AccessToken $adminToken -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
+            Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
 
             if ('${{ steps.resolve-suite.outputs.suite }}' -eq 'smoke') {
               Reset-KeycloakPassword -AccessToken $adminToken -Username $env:MEDITRACK_PHARMACIST_USERNAME -Password $env:MEDITRACK_PHARMACIST_PASSWORD -ActorName 'pharmacist'
+              Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PHARMACIST_USERNAME -Password $env:MEDITRACK_PHARMACIST_PASSWORD -ActorName 'pharmacist'
               Reset-KeycloakPassword -AccessToken $adminToken -Username $env:MEDITRACK_PATIENT_USERNAME -Password $env:MEDITRACK_PATIENT_PASSWORD -ActorName 'patient'
+              Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PATIENT_USERNAME -Password $env:MEDITRACK_PATIENT_PASSWORD -ActorName 'patient'
             }
           }
           finally {
@@ -403,6 +468,8 @@ jobs:
               '--silent'
               '--show-error'
               '--location'
+              '--noproxy'
+              '*'
               '--request'
               'POST'
               $tokenUrl
@@ -595,6 +662,8 @@ jobs:
               '--silent'
               '--show-error'
               '--location'
+              '--noproxy'
+              '*'
               '--request'
               'POST'
               $tokenUrl
