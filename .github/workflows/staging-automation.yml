@@ -152,6 +152,155 @@ jobs:
             Write-Error 'Missing GitHub secret STAGING_PATIENT_PASSWORD'
           }
 
+      - name: Reconcile staging Keycloak actor passwords
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' || steps.resolve-suite.outputs.suite == 'load' }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          function Stop-PortListeners {
+            param([int]$Port)
+
+            $listeners = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+            if ($null -eq $listeners) {
+              return
+            }
+
+            $listeners |
+              Select-Object -ExpandProperty OwningProcess -Unique |
+              ForEach-Object {
+                Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue
+              }
+          }
+
+          function Assert-PortForwardStarted {
+            param(
+              [System.Diagnostics.Process]$Process,
+              [string]$Name,
+              [string]$StdOutLog,
+              [string]$StdErrLog
+            )
+
+            Start-Sleep -Seconds 3
+            if (-not $Process.HasExited) {
+              return
+            }
+
+            Write-Host "$Name port-forward exited immediately"
+            if (Test-Path $StdOutLog) { Get-Content $StdOutLog }
+            if (Test-Path $StdErrLog) { Get-Content $StdErrLog }
+            Write-Error "$Name port-forward failed to start"
+          }
+
+          function Wait-HttpReady {
+            param(
+              [string]$Name,
+              [string]$Url,
+              [int]$Attempts = 20,
+              [string]$StdOutLog = '',
+              [string]$StdErrLog = ''
+            )
+
+            for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
+              if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
+                Write-Host "$Name ready with status $statusCode at $Url"
+                return
+              }
+
+              Start-Sleep -Seconds 3
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($StdOutLog) -and (Test-Path $StdOutLog)) { Get-Content $StdOutLog }
+            if (-not [string]::IsNullOrWhiteSpace($StdErrLog) -and (Test-Path $StdErrLog)) { Get-Content $StdErrLog }
+            Write-Error "$Name did not become ready at $Url"
+          }
+
+          function Get-KeycloakAdminToken {
+            $tokenUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/master/protocol/openid-connect/token"
+            $response = & curl.exe --silent --show-error --location --request POST $tokenUrl --header 'Content-Type: application/x-www-form-urlencoded' --data-urlencode 'grant_type=password' --data-urlencode 'client_id=admin-cli' --data-urlencode 'username=admin' --data-urlencode 'password=admin'
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error 'Failed to obtain Keycloak admin token for password reconciliation'
+            }
+
+            $payload = $response | ConvertFrom-Json
+            if ($null -eq $payload.access_token) {
+              $errorCode = if ($null -ne $payload.error) { $payload.error } else { 'unknown_error' }
+              $errorDescription = if ($null -ne $payload.error_description) { $payload.error_description } else { 'No error description returned' }
+              Write-Error "Failed to obtain Keycloak admin token: $errorCode - $errorDescription"
+            }
+
+            return $payload.access_token
+          }
+
+          function Find-KeycloakUserId {
+            param(
+              [string]$AccessToken,
+              [string]$Username
+            )
+
+            $usersUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/admin/realms/$($env:MEDITRACK_KEYCLOAK_REALM)/users?username=$Username&exact=true"
+            $response = & curl.exe --silent --show-error --location --request GET $usersUrl --header "Authorization: Bearer $AccessToken"
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to query Keycloak user $Username"
+            }
+
+            $payload = $response | ConvertFrom-Json
+            if ($null -eq $payload -or $payload.Count -eq 0) {
+              Write-Error "Keycloak user $Username not found in realm $($env:MEDITRACK_KEYCLOAK_REALM)"
+            }
+
+            return $payload[0].id
+          }
+
+          function Reset-KeycloakPassword {
+            param(
+              [string]$AccessToken,
+              [string]$Username,
+              [string]$Password,
+              [string]$ActorName
+            )
+
+            if ([string]::IsNullOrWhiteSpace($Password)) {
+              Write-Host "Skipping Keycloak password reset for $ActorName ($Username) because no password secret is configured"
+              return
+            }
+
+            $userId = Find-KeycloakUserId -AccessToken $AccessToken -Username $Username
+            $resetUrl = "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/admin/realms/$($env:MEDITRACK_KEYCLOAK_REALM)/users/$userId/reset-password"
+            $body = @{ type = 'password'; value = $Password; temporary = $false } | ConvertTo-Json -Compress
+            & curl.exe --silent --show-error --location --request PUT $resetUrl --header "Authorization: Bearer $AccessToken" --header 'Content-Type: application/json' --data $body | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+              Write-Error "Failed to reset Keycloak password for $ActorName ($Username)"
+            }
+
+            Write-Host "Reconciled Keycloak password for $ActorName ($Username)"
+          }
+
+          $keycloakOut = Join-Path $env:RUNNER_TEMP 'reconcile-keycloak-port-forward.out.log'
+          $keycloakErr = Join-Path $env:RUNNER_TEMP 'reconcile-keycloak-port-forward.err.log'
+          Stop-PortListeners -Port 18080
+
+          $keycloak = $null
+          try {
+            $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
+            Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+            Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
+
+            $adminToken = Get-KeycloakAdminToken
+            Reset-KeycloakPassword -AccessToken $adminToken -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
+
+            if ('${{ steps.resolve-suite.outputs.suite }}' -eq 'smoke') {
+              Reset-KeycloakPassword -AccessToken $adminToken -Username $env:MEDITRACK_PHARMACIST_USERNAME -Password $env:MEDITRACK_PHARMACIST_PASSWORD -ActorName 'pharmacist'
+              Reset-KeycloakPassword -AccessToken $adminToken -Username $env:MEDITRACK_PATIENT_USERNAME -Password $env:MEDITRACK_PATIENT_PASSWORD -ActorName 'patient'
+            }
+          }
+          finally {
+            if ($null -ne $keycloak) {
+              Stop-Process -Id $keycloak.Id -Force -ErrorAction SilentlyContinue
+            }
+          }
+
       - name: Validate staging actor credentials
         if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
