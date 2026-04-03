@@ -153,7 +153,7 @@ jobs:
           }
 
       - name: Reconcile staging Keycloak actor passwords
-        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' || steps.resolve-suite.outputs.suite == 'load' }}
+        if: ${{ steps.resolve-suite.outputs.suite == 'smoke' }}
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
           $ErrorActionPreference = 'Stop'
