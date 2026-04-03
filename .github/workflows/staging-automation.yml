@@ -21,6 +21,11 @@ on:
         options:
           - smoke
           - load
+      seed_load_dataset:
+        description: Seed or refresh the staging load dataset before running suite=load
+        required: true
+        default: false
+        type: boolean
 
 jobs:
   staging-automation:
@@ -145,10 +150,10 @@ jobs:
           if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_DOCTOR_PASSWORD)) {
             Write-Error 'Missing GitHub secret STAGING_DOCTOR_PASSWORD'
           }
-          if ('${{ steps.resolve-suite.outputs.suite }}' -eq 'smoke' -and [string]::IsNullOrWhiteSpace($env:MEDITRACK_PHARMACIST_PASSWORD)) {
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_PHARMACIST_PASSWORD)) {
             Write-Error 'Missing GitHub secret STAGING_PHARMACIST_PASSWORD'
           }
-          if ('${{ steps.resolve-suite.outputs.suite }}' -eq 'smoke' -and [string]::IsNullOrWhiteSpace($env:MEDITRACK_PATIENT_PASSWORD)) {
+          if ([string]::IsNullOrWhiteSpace($env:MEDITRACK_PATIENT_PASSWORD)) {
             Write-Error 'Missing GitHub secret STAGING_PATIENT_PASSWORD'
           }
 
@@ -197,12 +202,18 @@ jobs:
               [string]$Name,
               [string]$Url,
               [int]$Attempts = 20,
+              [string[]]$Headers = @(),
               [string]$StdOutLog = '',
               [string]$StdErrLog = ''
             )
 
             for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
-              $statusCode = & curl.exe --silent --show-error --output NUL --write-out "%{http_code}" --max-time 5 --noproxy "*" $Url
+              $curlArgs = @('--silent', '--show-error', '--output', 'NUL', '--write-out', '%{http_code}', '--max-time', '5', '--noproxy', '*')
+              foreach ($header in $Headers) {
+                $curlArgs += @('--header', $header)
+              }
+              $curlArgs += $Url
+              $statusCode = & curl.exe @curlArgs
               if ($LASTEXITCODE -eq 0 -and $statusCode -match '^[0-9]{3}$') {
                 Write-Host "$Name ready with status $statusCode at $Url"
                 return
@@ -587,7 +598,7 @@ jobs:
             Write-Error 'Failed to seed staging automation actors'
           }
 
-      - name: Validate load doctor credential
+      - name: Validate load actor credentials
         if: ${{ steps.resolve-suite.outputs.suite == 'load' }}
         shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
         run: |
@@ -690,7 +701,7 @@ jobs:
             if ($null -eq $payload.access_token) {
               $errorCode = if ($null -ne $payload.error) { $payload.error } else { 'unknown_error' }
               $errorDescription = if ($null -ne $payload.error_description) { $payload.error_description } else { 'No error description returned' }
-              Write-Error "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription. Check GitHub Environment secret STAGING_DOCTOR_PASSWORD and confirm it matches the current Keycloak password for user $Username in realm $($env:MEDITRACK_KEYCLOAK_REALM). Actor seeding does not update Keycloak passwords."
+              Write-Error "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription. Check the corresponding staging GitHub secret and confirm it matches the current Keycloak password for user $Username in realm $($env:MEDITRACK_KEYCLOAK_REALM)."
             }
 
             Write-Host "Keycloak password grant succeeded for $ActorName ($Username)"
@@ -705,12 +716,89 @@ jobs:
             $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
             Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
             Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
-            Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
+
+            $failures = @()
+
+            $doctorFailure = Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_DOCTOR_USERNAME -Password $env:MEDITRACK_DOCTOR_PASSWORD -ActorName 'doctor'
+            if (-not [string]::IsNullOrWhiteSpace($doctorFailure)) {
+              $failures += $doctorFailure
+            }
+
+            $pharmacistFailure = Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PHARMACIST_USERNAME -Password $env:MEDITRACK_PHARMACIST_PASSWORD -ActorName 'pharmacist'
+            if (-not [string]::IsNullOrWhiteSpace($pharmacistFailure)) {
+              $failures += $pharmacistFailure
+            }
+
+            $patientFailure = Assert-KeycloakPasswordGrant -Username $env:MEDITRACK_PATIENT_USERNAME -Password $env:MEDITRACK_PATIENT_PASSWORD -ActorName 'patient'
+            if (-not [string]::IsNullOrWhiteSpace($patientFailure)) {
+              $failures += $patientFailure
+            }
+
+            if ($failures.Count -gt 0) {
+              Write-Error ($failures -join "`n")
+            }
           }
           finally {
             if ($null -ne $keycloak) {
               Stop-Process -Id $keycloak.Id -Force -ErrorAction SilentlyContinue
             }
+          }
+
+      - name: Seed load dataset
+        if: ${{ steps.resolve-suite.outputs.suite == 'load' && github.event_name == 'workflow_dispatch' && inputs.seed_load_dataset }}
+        shell: powershell -NoProfile -ExecutionPolicy Bypass -File {0}
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $actors = @(
+            @{
+              username = $env:MEDITRACK_DOCTOR_USERNAME
+              password = $env:MEDITRACK_DOCTOR_PASSWORD
+              role = 'doctor'
+              email = 'doctor@meditrack.staging'
+              full_name = 'Dr. MediTrack Staging'
+              phone = '+62-812-0000-0001'
+              sip_number = 'SIP-STAGING-DOCTOR'
+              specialization = 'General Medicine'
+            }
+            @{
+              username = $env:MEDITRACK_PHARMACIST_USERNAME
+              password = $env:MEDITRACK_PHARMACIST_PASSWORD
+              role = 'pharmacist'
+              email = 'pharmacist@meditrack.staging'
+              full_name = 'MediTrack Staging Pharmacist'
+              phone = '+62-812-0000-0002'
+            }
+            @{
+              username = $env:MEDITRACK_PATIENT_USERNAME
+              password = $env:MEDITRACK_PATIENT_PASSWORD
+              role = 'patient'
+              email = 'patient@meditrack.staging'
+              full_name = 'Staging Patient'
+              phone = '+62-812-0000-0003'
+              nik = '3173000000000001'
+              blood_type = 'O+'
+              allergies = 'None'
+              emergency_contact = 'Staging Family'
+            }
+          )
+
+          $actorsJson = $actors | ConvertTo-Json -Depth 5
+          $actorsBase64 = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($actorsJson))
+
+          kubectl rollout status deployment/staging-fastapi -n meditrack-staging --timeout=180s
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error 'Staging FastAPI deployment did not become ready before load dataset seeding'
+          }
+
+          $podName = kubectl get pod -n meditrack-staging -l app=fastapi -o jsonpath='{.items[0].metadata.name}'
+          if ([string]::IsNullOrWhiteSpace($podName)) {
+            Write-Error 'Unable to resolve staging FastAPI pod for load dataset seeding'
+          }
+
+          kubectl exec -n meditrack-staging $podName -- python /app/scripts/seed_load_dataset.py --actors-json-base64 $actorsBase64 --total-doctors 5 --total-patients 50 --total-pharmacists 3 --total-prescriptions 400 --seed 42
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error 'Failed to seed staging load dataset'
           }
 
       - name: Set up Node.js
@@ -822,20 +910,42 @@ jobs:
           $fastapiErr = Join-Path $env:RUNNER_TEMP 'staging-fastapi-port-forward.err.log'
           $keycloakOut = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.out.log'
           $keycloakErr = Join-Path $env:RUNNER_TEMP 'staging-keycloak-port-forward.err.log'
+          $ingressHost = 'meditrack.staging.local'
+          $ingressAddress = ''
+          $fastapiHealthHeaders = @()
 
-          Stop-PortListeners -Port 18000
+          if ($suite -eq 'smoke') {
+            Stop-PortListeners -Port 18000
+          }
           Stop-PortListeners -Port 18080
 
           $fastapi = $null
           $keycloak = $null
           try {
-            $fastapi = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $fastapiOut -RedirectStandardError $fastapiErr -PassThru -WindowStyle Hidden
             $keycloak = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-keycloak','18080:8080' -RedirectStandardOutput $keycloakOut -RedirectStandardError $keycloakErr -PassThru -WindowStyle Hidden
 
-            Assert-PortForwardStarted -Process $fastapi -Name 'FastAPI' -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            if ($suite -eq 'smoke') {
+              $fastapi = Start-Process -FilePath 'kubectl' -ArgumentList 'port-forward','-n','meditrack-staging','svc/staging-fastapi','18000:80' -RedirectStandardOutput $fastapiOut -RedirectStandardError $fastapiErr -PassThru -WindowStyle Hidden
+              Assert-PortForwardStarted -Process $fastapi -Name 'FastAPI' -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            }
+            else {
+              $ingressAddress = kubectl get ingress -n meditrack-staging -o jsonpath='{.items[0].status.loadBalancer.ingress[0].ip}'
+              if ([string]::IsNullOrWhiteSpace($ingressAddress)) {
+                $ingressAddress = kubectl get ingress -n meditrack-staging -o jsonpath='{.items[0].status.loadBalancer.ingress[0].hostname}'
+              }
+              if ([string]::IsNullOrWhiteSpace($ingressAddress)) {
+                Write-Error 'Unable to resolve staging ingress address for load suite'
+              }
+
+              $env:MEDITRACK_BASE_URL = "http://$ingressAddress"
+              $env:MEDITRACK_HTTP_HOST_HEADER = $ingressHost
+              $fastapiHealthHeaders = @("Host: $ingressHost")
+              Write-Host "Load suite targeting ingress $ingressAddress with Host header $ingressHost"
+            }
+
             Assert-PortForwardStarted -Process $keycloak -Name 'Keycloak' -StdOutLog $keycloakOut -StdErrLog $keycloakErr
 
-            Wait-HttpReady -Name 'FastAPI health endpoint' -Url "$($env:MEDITRACK_BASE_URL)/api/v1/health" -StdOutLog $fastapiOut -StdErrLog $fastapiErr
+            Wait-HttpReady -Name 'FastAPI health endpoint' -Url "$($env:MEDITRACK_BASE_URL)/api/v1/health" -Headers $fastapiHealthHeaders -StdOutLog $fastapiOut -StdErrLog $fastapiErr
             Wait-HttpReady -Name 'Keycloak realm endpoint' -Url "$($env:MEDITRACK_KEYCLOAK_BASE_URL)/realms/$($env:MEDITRACK_KEYCLOAK_REALM)" -StdOutLog $keycloakOut -StdErrLog $keycloakErr
 
             if ($suite -eq 'smoke') {
