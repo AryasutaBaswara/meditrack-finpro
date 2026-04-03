@@ -280,7 +280,7 @@ jobs:
             if ($null -eq $payload.access_token) {
               $errorCode = if ($null -ne $payload.error) { $payload.error } else { 'unknown_error' }
               $errorDescription = if ($null -ne $payload.error_description) { $payload.error_description } else { 'No error description returned' }
-              return "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription"
+              return "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription. Check the staging GitHub secret for this actor password and confirm it matches the current Keycloak user password in realm $($env:MEDITRACK_KEYCLOAK_REALM). Actor seeding only creates app-domain rows and does not reset Keycloak passwords."
             }
 
             Write-Host "Keycloak password grant succeeded for $ActorName ($Username)"
@@ -472,7 +472,7 @@ jobs:
             if ($null -eq $payload.access_token) {
               $errorCode = if ($null -ne $payload.error) { $payload.error } else { 'unknown_error' }
               $errorDescription = if ($null -ne $payload.error_description) { $payload.error_description } else { 'No error description returned' }
-              Write-Error "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription"
+              Write-Error "Keycloak password grant failed for $ActorName ($Username): $errorCode - $errorDescription. Check GitHub Environment secret STAGING_DOCTOR_PASSWORD and confirm it matches the current Keycloak password for user $Username in realm $($env:MEDITRACK_KEYCLOAK_REALM). Actor seeding does not update Keycloak passwords."
             }
 
             Write-Host "Keycloak password grant succeeded for $ActorName ($Username)"
