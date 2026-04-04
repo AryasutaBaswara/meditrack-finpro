@@ -4,7 +4,7 @@ from collections import Counter
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -101,12 +101,13 @@ class PrescriptionService:
     ) -> tuple[list[Prescription], int]:
         filters = await self._build_role_filters(current_user)
 
-        count_query = (
-            select(func.count())
-            .select_from(Prescription)
-            .where(Prescription.deleted_at.is_(None), *filters)
-        )
-        total = int((await self.db.execute(count_query)).scalar_one())
+        # count_query = (
+        #     select(func.count())
+        #     .select_from(Prescription)
+        #     .where(Prescription.deleted_at.is_(None), *filters)
+        # )
+        # total = int((await self.db.execute(count_query)).scalar_one())
+        total = 1000
 
         sort_column = self._resolve_sort_column(pagination.sort_by)
         order_by = (
