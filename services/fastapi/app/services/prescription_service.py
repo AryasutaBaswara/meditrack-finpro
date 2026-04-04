@@ -319,18 +319,29 @@ class PrescriptionService:
         raise UnauthorizedException("Insufficient permissions")
 
     async def _build_role_filters(self, current_user: TokenData) -> list[Any]:
+        # 1. Apoteker / Admin langsung lolos (tanpa filter)
         if "admin" in current_user.roles or "pharmacist" in current_user.roles:
             return []
 
-        user = await self._get_user_by_sub(current_user.sub)
-
+        # 2. Gunakan Scalar Subquery untuk Dokter (Tidak ada lagi await ke DB di sini!)
         if "doctor" in current_user.roles:
-            doctor = await self._get_doctor_for_user(user.id)
-            return [Prescription.doctor_id == doctor.id]
+            doctor_subq = (
+                select(Doctor.id)
+                .join(User, User.id == Doctor.user_id)
+                .where(User.sub == current_user.sub)
+                .scalar_subquery()
+            )
+            return [Prescription.doctor_id == doctor_subq]
 
+        # 3. Gunakan Scalar Subquery untuk Pasien
         if "patient" in current_user.roles:
-            patient = await self._get_patient_for_user(user.id)
-            return [Prescription.patient_id == patient.id]
+            patient_subq = (
+                select(Patient.id)
+                .join(User, User.id == Patient.user_id)
+                .where(User.sub == current_user.sub)
+                .scalar_subquery()
+            )
+            return [Prescription.patient_id == patient_subq]
 
         raise UnauthorizedException("Insufficient permissions")
 
