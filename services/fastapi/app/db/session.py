@@ -56,8 +56,9 @@ def create_database_engine(
 
 
 engine: AsyncEngine = create_database_engine(
-    pool_size=10,
-    max_overflow=20,
+    pool_size=50,  # Buka 50 loket kasir utama
+    max_overflow=50,  # Boleh buka 50 loket tambahan kalau lagi diserang Locust
+    pool_timeout=30,  # Waktu tunggu maksimal antrean
 )
 
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
