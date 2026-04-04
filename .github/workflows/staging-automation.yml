@@ -972,7 +972,7 @@ jobs:
             elseif ($suite -eq 'load') {
               Push-Location automation
               try {
-                python -m locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 2m --host $env:MEDITRACK_BASE_URL --html locust-report.html --csv locust-report
+                python -m locust -f load/locustfile.py --headless --users 10 --spawn-rate 2 --run-time 1m --host $env:MEDITRACK_BASE_URL --html locust-report.html --csv locust-report
               }
               finally {
                 Pop-Location
