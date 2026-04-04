@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy import Select, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
 from app.core.exceptions import (
     DoctorNotFoundException,
@@ -152,6 +152,8 @@ class PrescriptionService:
         return (
             select(Prescription)
             .options(
+                joinedload(Prescription.patient),
+                joinedload(Prescription.doctor),
                 selectinload(Prescription.items).selectinload(PrescriptionItem.drug),
             )
             .where(Prescription.deleted_at.is_(None))
