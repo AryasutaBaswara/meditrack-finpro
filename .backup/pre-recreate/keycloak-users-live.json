@@ -1,0 +1,69 @@
+[ {
+  "id" : "1bf38105-b7bd-4eaf-af0c-21b4728f5cb9",
+  "username" : "admin_stage",
+  "enabled" : true,
+  "totp" : false,
+  "emailVerified" : true,
+  "email" : "admin@meditrack.staging",
+  "disableableCredentialTypes" : [ ],
+  "requiredActions" : [ ],
+  "notBefore" : 0,
+  "access" : {
+    "manageGroupMembership" : true,
+    "view" : true,
+    "mapRoles" : true,
+    "impersonate" : true,
+    "manage" : true
+  }
+}, {
+  "id" : "04b139d7-0b39-41d0-a054-d2fdf0cb3ddb",
+  "username" : "doctor_stage",
+  "enabled" : true,
+  "totp" : false,
+  "emailVerified" : true,
+  "email" : "doctor@meditrack.staging",
+  "disableableCredentialTypes" : [ ],
+  "requiredActions" : [ ],
+  "notBefore" : 0,
+  "access" : {
+    "manageGroupMembership" : true,
+    "view" : true,
+    "mapRoles" : true,
+    "impersonate" : true,
+    "manage" : true
+  }
+}, {
+  "id" : "3013c4af-96e6-4844-8566-09692d4bb025",
+  "username" : "patient_stage",
+  "enabled" : true,
+  "totp" : false,
+  "emailVerified" : true,
+  "email" : "patient@meditrack.staging",
+  "disableableCredentialTypes" : [ ],
+  "requiredActions" : [ ],
+  "notBefore" : 0,
+  "access" : {
+    "manageGroupMembership" : true,
+    "view" : true,
+    "mapRoles" : true,
+    "impersonate" : true,
+    "manage" : true
+  }
+}, {
+  "id" : "3cc19fd8-33f2-48e9-98d6-4aae8110ddde",
+  "username" : "pharmacist_stage",
+  "enabled" : true,
+  "totp" : false,
+  "emailVerified" : true,
+  "email" : "pharmacist@meditrack.staging",
+  "disableableCredentialTypes" : [ ],
+  "requiredActions" : [ ],
+  "notBefore" : 0,
+  "access" : {
+    "manageGroupMembership" : true,
+    "view" : true,
+    "mapRoles" : true,
+    "impersonate" : true,
+    "manage" : true
+  }
+} ]

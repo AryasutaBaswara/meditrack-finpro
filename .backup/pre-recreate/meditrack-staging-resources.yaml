@@ -1,0 +1,3602 @@
+apiVersion: v1
+items:
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generateName: staging-elasticsearch-6c68cd5d84-
+    generation: 1
+    labels:
+      app: elasticsearch
+      pod-template-hash: 6c68cd5d84
+      variant: staging
+    name: staging-elasticsearch-6c68cd5d84-bzml8
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: staging-elasticsearch-6c68cd5d84
+      uid: 5a982888-25a8-4ce9-950f-98258b7edd72
+    resourceVersion: "166519"
+    uid: f525a6b0-a3d5-4271-b4be-ec6dae35c2cc
+  spec:
+    containers:
+    - env:
+      - name: discovery.type
+        value: single-node
+      - name: xpack.security.enabled
+        value: "false"
+      - name: ES_JAVA_OPTS
+        value: -Xms512m -Xmx512m
+      image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+      imagePullPolicy: IfNotPresent
+      name: elasticsearch
+      ports:
+      - containerPort: 9200
+        protocol: TCP
+      resources:
+        limits:
+          cpu: 500m
+          memory: 1Gi
+        requests:
+          cpu: 200m
+          memory: 512Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-nzrmc
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: minikube
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-nzrmc
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:15:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-03-31T09:55:26Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:15:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:15:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-03-31T09:55:26Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 200m
+        memory: 512Mi
+      containerID: docker://c9fc968c561f01b9fd666977694108c668d16bd49b32783293dfa242fe85b163
+      image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+      imageID: docker-pullable://docker.elastic.co/elasticsearch/elasticsearch@sha256:fcf6b29cb00f1db56921e6cb47b506e6a207fcaeae777765dfa733dc007513a6
+      lastState:
+        terminated:
+          containerID: docker://12dee65e174268353c45fe823cf004f0becd6bfd67368d1d0f56df1506b1fbf4
+          exitCode: 143
+          finishedAt: "2026-04-04T07:13:36Z"
+          reason: Error
+          startedAt: "2026-04-04T07:13:21Z"
+      name: elasticsearch
+      ready: true
+      resources:
+        limits:
+          cpu: 500m
+          memory: 1Gi
+        requests:
+          cpu: 200m
+          memory: 512Mi
+      restartCount: 16
+      started: true
+      state:
+        running:
+          startedAt: "2026-04-04T07:15:06Z"
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-nzrmc
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 192.168.49.2
+    hostIPs:
+    - ip: 192.168.49.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.2.62
+    podIPs:
+    - ip: 10.244.2.62
+    qosClass: Burstable
+    startTime: "2026-03-31T09:55:26Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/restartedAt: "2026-04-02T14:51:56+07:00"
+    creationTimestamp: "2026-04-04T05:46:33Z"
+    generateName: staging-fastapi-6d5cf9fb48-
+    generation: 1
+    labels:
+      app: fastapi
+      pod-template-hash: 6d5cf9fb48
+      variant: staging
+    name: staging-fastapi-6d5cf9fb48-qnjck
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: staging-fastapi-6d5cf9fb48
+      uid: b85892b9-737a-47cc-be62-4a26d062c42c
+    resourceVersion: "174842"
+    uid: f04a0216-2900-483a-a545-32d49ef43e55
+  spec:
+    containers:
+    - envFrom:
+      - configMapRef:
+          name: staging-fastapi-config
+      - secretRef:
+          name: staging-fastapi-secrets
+      image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /api/v1/health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: fastapi
+      ports:
+      - containerPort: 8000
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /api/v1/health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 15
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-mfgms
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: minikube
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-mfgms
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:15:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T05:46:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T06:50:59Z"
+      message: 'containers with unready status: [fastapi]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T06:50:59Z"
+      message: 'containers with unready status: [fastapi]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T05:46:33Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 256Mi
+      containerID: docker://4141a14d232a4c3dedd07113f133ae7cd473369e88e882c914a5d4820698ce3f
+      image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+      imageID: docker-pullable://ghcr.io/aryasutabaswara/meditrack-fastapi@sha256:d8e03462b9ca8140d6aa361f0e8b899eb6c03a8a8ff959d9c889887021db1d0a
+      lastState:
+        terminated:
+          containerID: docker://4141a14d232a4c3dedd07113f133ae7cd473369e88e882c914a5d4820698ce3f
+          exitCode: 3
+          finishedAt: "2026-04-04T08:28:47Z"
+          reason: Error
+          startedAt: "2026-04-04T08:28:26Z"
+      name: fastapi
+      ready: false
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      restartCount: 26
+      started: false
+      state:
+        waiting:
+          message: back-off 5m0s restarting failed container=fastapi pod=staging-fastapi-6d5cf9fb48-qnjck_meditrack-staging(f04a0216-2900-483a-a545-32d49ef43e55)
+          reason: CrashLoopBackOff
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-mfgms
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 192.168.49.2
+    hostIPs:
+    - ip: 192.168.49.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.2.58
+    podIPs:
+    - ip: 10.244.2.58
+    qosClass: Burstable
+    startTime: "2026-04-04T05:46:33Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/restartedAt: "2026-04-02T14:51:56+07:00"
+    creationTimestamp: "2026-04-04T05:46:00Z"
+    generateName: staging-fastapi-6d5cf9fb48-
+    generation: 1
+    labels:
+      app: fastapi
+      pod-template-hash: 6d5cf9fb48
+      variant: staging
+    name: staging-fastapi-6d5cf9fb48-w7v4w
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: staging-fastapi-6d5cf9fb48
+      uid: b85892b9-737a-47cc-be62-4a26d062c42c
+    resourceVersion: "174923"
+    uid: 735657ae-a019-4255-9ffa-8fb313636ca2
+  spec:
+    containers:
+    - envFrom:
+      - configMapRef:
+          name: staging-fastapi-config
+      - secretRef:
+          name: staging-fastapi-secrets
+      image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /api/v1/health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 15
+        periodSeconds: 30
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: fastapi
+      ports:
+      - containerPort: 8000
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /api/v1/health
+          port: 8000
+          scheme: HTTP
+        initialDelaySeconds: 10
+        periodSeconds: 15
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-tx9mz
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: minikube
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-tx9mz
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:15:08Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T05:46:00Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T06:50:59Z"
+      message: 'containers with unready status: [fastapi]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T06:50:59Z"
+      message: 'containers with unready status: [fastapi]'
+      observedGeneration: 1
+      reason: ContainersNotReady
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T05:46:00Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 256Mi
+      containerID: docker://a809828e36a15236187f722d01886ccbdc0714bd4e5902e79d2d4d5388040d7c
+      image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+      imageID: docker-pullable://ghcr.io/aryasutabaswara/meditrack-fastapi@sha256:d8e03462b9ca8140d6aa361f0e8b899eb6c03a8a8ff959d9c889887021db1d0a
+      lastState:
+        terminated:
+          containerID: docker://a809828e36a15236187f722d01886ccbdc0714bd4e5902e79d2d4d5388040d7c
+          exitCode: 3
+          finishedAt: "2026-04-04T08:28:58Z"
+          reason: Error
+          startedAt: "2026-04-04T08:28:47Z"
+      name: fastapi
+      ready: false
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      restartCount: 26
+      started: false
+      state:
+        waiting:
+          message: back-off 5m0s restarting failed container=fastapi pod=staging-fastapi-6d5cf9fb48-w7v4w_meditrack-staging(735657ae-a019-4255-9ffa-8fb313636ca2)
+          reason: CrashLoopBackOff
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-tx9mz
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 192.168.49.2
+    hostIPs:
+    - ip: 192.168.49.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.2.66
+    podIPs:
+    - ip: 10.244.2.66
+    qosClass: Burstable
+    startTime: "2026-04-04T05:46:00Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-04-04T06:40:00Z"
+    generateName: staging-fastapi-reindex-29588080-
+    generation: 1
+    labels:
+      batch.kubernetes.io/controller-uid: d09ca8a6-849a-40eb-878d-999775d093ee
+      batch.kubernetes.io/job-name: staging-fastapi-reindex-29588080
+      controller-uid: d09ca8a6-849a-40eb-878d-999775d093ee
+      job-name: staging-fastapi-reindex-29588080
+      variant: staging
+    name: staging-fastapi-reindex-29588080-476rc
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: batch/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Job
+      name: staging-fastapi-reindex-29588080
+      uid: d09ca8a6-849a-40eb-878d-999775d093ee
+    resourceVersion: "164490"
+    uid: 324ed8aa-82f7-41a4-a22f-1aebe43ef06b
+  spec:
+    containers:
+    - command:
+      - python
+      - -m
+      - app.services.search_indexer
+      envFrom:
+      - configMapRef:
+          name: staging-fastapi-config
+      - secretRef:
+          name: staging-fastapi-secrets
+      image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+      imagePullPolicy: IfNotPresent
+      name: reindex
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-kzfkz
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: minikube
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: OnFailure
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-kzfkz
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T06:41:51Z"
+      observedGeneration: 1
+      status: "False"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T06:40:00Z"
+      observedGeneration: 1
+      reason: PodCompleted
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T06:41:50Z"
+      observedGeneration: 1
+      reason: PodCompleted
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T06:41:50Z"
+      observedGeneration: 1
+      reason: PodCompleted
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T06:40:00Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 256Mi
+      containerID: docker://097927f2fdf35ab105939ea3b890528b93455641f05ab106f05f611ab8b1fd12
+      image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+      imageID: docker-pullable://ghcr.io/aryasutabaswara/meditrack-fastapi@sha256:d8e03462b9ca8140d6aa361f0e8b899eb6c03a8a8ff959d9c889887021db1d0a
+      lastState: {}
+      name: reindex
+      ready: false
+      resources:
+        limits:
+          cpu: 500m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: docker://097927f2fdf35ab105939ea3b890528b93455641f05ab106f05f611ab8b1fd12
+          exitCode: 0
+          finishedAt: "2026-04-04T06:41:50Z"
+          reason: Completed
+          startedAt: "2026-04-04T06:40:00Z"
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-kzfkz
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 192.168.49.2
+    hostIPs:
+    - ip: 192.168.49.2
+    observedGeneration: 1
+    phase: Succeeded
+    qosClass: Burstable
+    startTime: "2026-04-04T06:40:00Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-04-01T07:36:02Z"
+    generation: 1
+    labels:
+      run: staging-fastapi-reindex-debug
+    name: staging-fastapi-reindex-debug
+    namespace: meditrack-staging
+    resourceVersion: "75210"
+    uid: 56908d5d-7faf-4718-a03a-c1a124f2ce64
+  spec:
+    containers:
+    - command:
+      - python
+      - -m
+      - app.services.search_indexer
+      envFrom:
+      - configMapRef:
+          name: staging-fastapi-config
+      - secretRef:
+          name: staging-fastapi-secrets
+      image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging
+      imagePullPolicy: IfNotPresent
+      name: reindex
+      resources: {}
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-nvhrg
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: minikube
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Never
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-nvhrg
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-01T07:36:40Z"
+      observedGeneration: 1
+      status: "False"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-01T07:36:02Z"
+      observedGeneration: 1
+      reason: PodCompleted
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-01T07:36:39Z"
+      observedGeneration: 1
+      reason: PodCompleted
+      status: "False"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-01T07:36:39Z"
+      observedGeneration: 1
+      reason: PodCompleted
+      status: "False"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-01T07:36:02Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - containerID: docker://507670e34e3d1e0afe0859751dd5309d2757171f7ba65807cef0335f94ac3659
+      image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging
+      imageID: docker-pullable://ghcr.io/aryasutabaswara/meditrack-fastapi@sha256:de18c668a3d8b6e72e19bb4990392d8b8caf7917a8892298c1e0bbb03394a29a
+      lastState: {}
+      name: reindex
+      ready: false
+      resources: {}
+      restartCount: 0
+      started: false
+      state:
+        terminated:
+          containerID: docker://507670e34e3d1e0afe0859751dd5309d2757171f7ba65807cef0335f94ac3659
+          exitCode: 0
+          finishedAt: "2026-04-01T07:36:39Z"
+          reason: Completed
+          startedAt: "2026-04-01T07:36:03Z"
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-nvhrg
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 192.168.49.2
+    hostIPs:
+    - ip: 192.168.49.2
+    observedGeneration: 1
+    phase: Succeeded
+    qosClass: BestEffort
+    startTime: "2026-04-01T07:36:02Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generateName: staging-keycloak-585fb489b5-
+    generation: 1
+    labels:
+      app: keycloak
+      pod-template-hash: 585fb489b5
+      variant: staging
+    name: staging-keycloak-585fb489b5-f4xhj
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: staging-keycloak-585fb489b5
+      uid: 0c50d901-9c33-4498-a7f7-b9a48b3d6738
+    resourceVersion: "166709"
+    uid: 25b0210e-464c-4fd5-a90d-39014e7b777d
+  spec:
+    containers:
+    - args:
+      - start-dev
+      - --import-realm
+      env:
+      - name: KEYCLOAK_ADMIN
+        value: admin
+      - name: KEYCLOAK_ADMIN_PASSWORD
+        value: admin
+      - name: KC_HOSTNAME_STRICT
+        value: "false"
+      - name: KC_HTTP_ENABLED
+        value: "true"
+      - name: KC_PROXY_HEADERS
+        value: xforwarded
+      image: quay.io/keycloak/keycloak:23.0
+      imagePullPolicy: IfNotPresent
+      livenessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /realms/master
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 60
+        periodSeconds: 20
+        successThreshold: 1
+        timeoutSeconds: 1
+      name: keycloak
+      ports:
+      - containerPort: 8080
+        protocol: TCP
+      readinessProbe:
+        failureThreshold: 3
+        httpGet:
+          path: /realms/master
+          port: 8080
+          scheme: HTTP
+        initialDelaySeconds: 30
+        periodSeconds: 10
+        successThreshold: 1
+        timeoutSeconds: 1
+      resources:
+        limits:
+          cpu: 750m
+          memory: 1Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /opt/keycloak/data/import
+        name: realm-import
+        readOnly: true
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-kvnr5
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: minikube
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - configMap:
+        defaultMode: 420
+        name: staging-keycloak-realm-import
+      name: realm-import
+    - name: kube-api-access-kvnr5
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:15:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-03-31T09:55:26Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:16:11Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:16:11Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-03-31T09:55:26Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 250m
+        memory: 512Mi
+      containerID: docker://54ff3c921aea0925478c2bf38389c6f6b31d08bb472baa9195a9d858318f81da
+      image: quay.io/keycloak/keycloak:23.0
+      imageID: docker-pullable://quay.io/keycloak/keycloak@sha256:14e99d6f5dd0516a5bdc82537b732cb85469ecdb15ad7fe5f11ff67521544db8
+      lastState:
+        terminated:
+          containerID: docker://7f67d8e907438a0aeec9cc8816b60cba3b3e3e631329bddc9c3da6069f8c8691
+          exitCode: 137
+          finishedAt: "2026-04-04T07:13:45Z"
+          reason: Error
+          startedAt: "2026-04-04T07:13:22Z"
+      name: keycloak
+      ready: true
+      resources:
+        limits:
+          cpu: 750m
+          memory: 1Gi
+        requests:
+          cpu: 250m
+          memory: 512Mi
+      restartCount: 17
+      started: true
+      state:
+        running:
+          startedAt: "2026-04-04T07:15:05Z"
+      volumeMounts:
+      - mountPath: /opt/keycloak/data/import
+        name: realm-import
+        readOnly: true
+        recursiveReadOnly: Disabled
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-kvnr5
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 192.168.49.2
+    hostIPs:
+    - ip: 192.168.49.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.2.56
+    podIPs:
+    - ip: 10.244.2.56
+    qosClass: Burstable
+    startTime: "2026-03-31T09:55:26Z"
+- apiVersion: v1
+  kind: Pod
+  metadata:
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generateName: staging-redis-6d7984c9f-
+    generation: 1
+    labels:
+      app: redis
+      pod-template-hash: 6d7984c9f
+      variant: staging
+    name: staging-redis-6d7984c9f-xn586
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: ReplicaSet
+      name: staging-redis-6d7984c9f
+      uid: 42663e52-7b1b-478c-93d8-8a23bf447f19
+    resourceVersion: "166511"
+    uid: 083b3bb0-5fe7-440a-b795-f0f62432c4bd
+  spec:
+    containers:
+    - image: redis:7-alpine
+      imagePullPolicy: IfNotPresent
+      name: redis
+      ports:
+      - containerPort: 6379
+        protocol: TCP
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      terminationMessagePath: /dev/termination-log
+      terminationMessagePolicy: File
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-wr57p
+        readOnly: true
+    dnsPolicy: ClusterFirst
+    enableServiceLinks: true
+    nodeName: minikube
+    preemptionPolicy: PreemptLowerPriority
+    priority: 0
+    restartPolicy: Always
+    schedulerName: default-scheduler
+    securityContext: {}
+    serviceAccount: default
+    serviceAccountName: default
+    terminationGracePeriodSeconds: 30
+    tolerations:
+    - effect: NoExecute
+      key: node.kubernetes.io/not-ready
+      operator: Exists
+      tolerationSeconds: 300
+    - effect: NoExecute
+      key: node.kubernetes.io/unreachable
+      operator: Exists
+      tolerationSeconds: 300
+    volumes:
+    - name: kube-api-access-wr57p
+      projected:
+        defaultMode: 420
+        sources:
+        - serviceAccountToken:
+            expirationSeconds: 3607
+            path: token
+        - configMap:
+            items:
+            - key: ca.crt
+              path: ca.crt
+            name: kube-root-ca.crt
+        - downwardAPI:
+            items:
+            - fieldRef:
+                apiVersion: v1
+                fieldPath: metadata.namespace
+              path: namespace
+  status:
+    conditions:
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:15:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodReadyToStartContainers
+    - lastProbeTime: null
+      lastTransitionTime: "2026-03-31T09:55:26Z"
+      observedGeneration: 1
+      status: "True"
+      type: Initialized
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:15:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: Ready
+    - lastProbeTime: null
+      lastTransitionTime: "2026-04-04T07:15:09Z"
+      observedGeneration: 1
+      status: "True"
+      type: ContainersReady
+    - lastProbeTime: null
+      lastTransitionTime: "2026-03-31T09:55:26Z"
+      observedGeneration: 1
+      status: "True"
+      type: PodScheduled
+    containerStatuses:
+    - allocatedResources:
+        cpu: 100m
+        memory: 128Mi
+      containerID: docker://aa9d2b725240cce4a8f8ee35f756cc94777ca211c54c38418cd6124284f0a9c6
+      image: redis:7-alpine
+      imageID: docker-pullable://redis@sha256:8b81dd37ff027bec4e516d41acfbe9fe2460070dc6d4a4570a2ac5b9d59df065
+      lastState:
+        terminated:
+          containerID: docker://4f677fb9bee1a16874eafbbc164b032ec62f627c5a07772ecf1df69e599591a6
+          exitCode: 0
+          finishedAt: "2026-04-04T07:13:35Z"
+          reason: Completed
+          startedAt: "2026-04-04T07:13:21Z"
+      name: redis
+      ready: true
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      restartCount: 16
+      started: true
+      state:
+        running:
+          startedAt: "2026-04-04T07:15:07Z"
+      volumeMounts:
+      - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+        name: kube-api-access-wr57p
+        readOnly: true
+        recursiveReadOnly: Disabled
+    hostIP: 192.168.49.2
+    hostIPs:
+    - ip: 192.168.49.2
+    observedGeneration: 1
+    phase: Running
+    podIP: 10.244.2.68
+    podIPs:
+    - ip: 10.244.2.68
+    qosClass: Burstable
+    startTime: "2026-03-31T09:55:26Z"
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:/Service:meditrack-staging/staging-elasticsearch
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:/Service:meditrack-staging/staging-elasticsearch"},"labels":{"variant":"staging"},"name":"staging-elasticsearch","namespace":"meditrack-staging"},"spec":{"ports":[{"port":9200,"protocol":"TCP","targetPort":9200}],"selector":{"app":"elasticsearch","variant":"staging"},"type":"ClusterIP"}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    labels:
+      variant: staging
+    name: staging-elasticsearch
+    namespace: meditrack-staging
+    resourceVersion: "23437"
+    uid: 93bc6ad3-088d-4e8b-9b83-de4de28fc47a
+  spec:
+    clusterIP: 10.102.193.125
+    clusterIPs:
+    - 10.102.193.125
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 9200
+      protocol: TCP
+      targetPort: 9200
+    selector:
+      app: elasticsearch
+      variant: staging
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:/Service:meditrack-staging/staging-fastapi
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:/Service:meditrack-staging/staging-fastapi"},"labels":{"variant":"staging"},"name":"staging-fastapi","namespace":"meditrack-staging"},"spec":{"ports":[{"port":80,"protocol":"TCP","targetPort":8000}],"selector":{"app":"fastapi","variant":"staging"},"type":"ClusterIP"}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    labels:
+      variant: staging
+    name: staging-fastapi
+    namespace: meditrack-staging
+    resourceVersion: "23439"
+    uid: f8c15b1a-6d80-4e22-8c88-36495ec55556
+  spec:
+    clusterIP: 10.111.92.28
+    clusterIPs:
+    - 10.111.92.28
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 80
+      protocol: TCP
+      targetPort: 8000
+    selector:
+      app: fastapi
+      variant: staging
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:/Service:meditrack-staging/staging-keycloak
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:/Service:meditrack-staging/staging-keycloak"},"labels":{"variant":"staging"},"name":"staging-keycloak","namespace":"meditrack-staging"},"spec":{"ports":[{"port":8080,"protocol":"TCP","targetPort":8080}],"selector":{"app":"keycloak","variant":"staging"},"type":"ClusterIP"}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    labels:
+      variant: staging
+    name: staging-keycloak
+    namespace: meditrack-staging
+    resourceVersion: "23438"
+    uid: 5461020a-59f9-40f2-b8fb-fc3b23266ca6
+  spec:
+    clusterIP: 10.99.173.86
+    clusterIPs:
+    - 10.99.173.86
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
+    selector:
+      app: keycloak
+      variant: staging
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: v1
+  kind: Service
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:/Service:meditrack-staging/staging-redis
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","kind":"Service","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:/Service:meditrack-staging/staging-redis"},"labels":{"variant":"staging"},"name":"staging-redis","namespace":"meditrack-staging"},"spec":{"ports":[{"port":6379,"protocol":"TCP","targetPort":6379}],"selector":{"app":"redis","variant":"staging"},"type":"ClusterIP"}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    labels:
+      variant: staging
+    name: staging-redis
+    namespace: meditrack-staging
+    resourceVersion: "23436"
+    uid: a4911e1a-280a-412c-8fe5-e1f280407a92
+  spec:
+    clusterIP: 10.107.135.3
+    clusterIPs:
+    - 10.107.135.3
+    internalTrafficPolicy: Cluster
+    ipFamilies:
+    - IPv4
+    ipFamilyPolicy: SingleStack
+    ports:
+    - port: 6379
+      protocol: TCP
+      targetPort: 6379
+    selector:
+      app: redis
+      variant: staging
+    sessionAffinity: None
+    type: ClusterIP
+  status:
+    loadBalancer: {}
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-elasticsearch
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:apps/Deployment:meditrack-staging/staging-elasticsearch"},"labels":{"app":"elasticsearch","variant":"staging"},"name":"staging-elasticsearch","namespace":"meditrack-staging"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"elasticsearch","variant":"staging"}},"template":{"metadata":{"labels":{"app":"elasticsearch","variant":"staging"}},"spec":{"containers":[{"env":[{"name":"discovery.type","value":"single-node"},{"name":"xpack.security.enabled","value":"false"},{"name":"ES_JAVA_OPTS","value":"-Xms512m -Xmx512m"}],"image":"docker.elastic.co/elasticsearch/elasticsearch:8.13.0","name":"elasticsearch","ports":[{"containerPort":9200}],"resources":{"limits":{"cpu":"500m","memory":"1024Mi"},"requests":{"cpu":"200m","memory":"512Mi"}}}]}}}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generation: 2
+    labels:
+      app: elasticsearch
+      variant: staging
+    name: staging-elasticsearch
+    namespace: meditrack-staging
+    resourceVersion: "166526"
+    uid: c9bbf7f4-cadb-4c24-b05f-3162353d0f98
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: elasticsearch
+        variant: staging
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        labels:
+          app: elasticsearch
+          variant: staging
+      spec:
+        containers:
+        - env:
+          - name: discovery.type
+            value: single-node
+          - name: xpack.security.enabled
+            value: "false"
+          - name: ES_JAVA_OPTS
+            value: -Xms512m -Xmx512m
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+          imagePullPolicy: IfNotPresent
+          name: elasticsearch
+          ports:
+          - containerPort: 9200
+            protocol: TCP
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1Gi
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-03-31T09:55:26Z"
+      lastUpdateTime: "2026-03-31T09:56:53Z"
+      message: ReplicaSet "staging-elasticsearch-6c68cd5d84" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2026-04-04T07:15:09Z"
+      lastUpdateTime: "2026-04-04T07:15:09Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    observedGeneration: 2
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/revision: "55"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi"},"labels":{"app":"fastapi","variant":"staging"},"name":"staging-fastapi","namespace":"meditrack-staging"},"spec":{"replicas":2,"selector":{"matchLabels":{"app":"fastapi","variant":"staging"}},"template":{"metadata":{"labels":{"app":"fastapi","variant":"staging"}},"spec":{"containers":[{"envFrom":[{"configMapRef":{"name":"staging-fastapi-config"}},{"secretRef":{"name":"staging-fastapi-secrets"}}],"image":"ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb","imagePullPolicy":"IfNotPresent","livenessProbe":{"httpGet":{"path":"/api/v1/health","port":8000},"initialDelaySeconds":15,"periodSeconds":30},"name":"fastapi","ports":[{"containerPort":8000}],"readinessProbe":{"httpGet":{"path":"/api/v1/health","port":8000},"initialDelaySeconds":10,"periodSeconds":15},"resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}}]}}}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generation: 55
+    labels:
+      app: fastapi
+      variant: staging
+    name: staging-fastapi
+    namespace: meditrack-staging
+    resourceVersion: "164568"
+    uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 2
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: fastapi
+        variant: staging
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-02T14:51:56+07:00"
+        labels:
+          app: fastapi
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    conditions:
+    - lastTransitionTime: "2026-04-04T05:46:00Z"
+      lastUpdateTime: "2026-04-04T05:46:17Z"
+      message: ReplicaSet "staging-fastapi-6d5cf9fb48" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2026-04-04T06:51:06Z"
+      lastUpdateTime: "2026-04-04T06:51:06Z"
+      message: Deployment does not have minimum availability.
+      reason: MinimumReplicasUnavailable
+      status: "False"
+      type: Available
+    observedGeneration: 55
+    replicas: 2
+    terminatingReplicas: 0
+    unavailableReplicas: 2
+    updatedReplicas: 2
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-keycloak
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:apps/Deployment:meditrack-staging/staging-keycloak"},"labels":{"app":"keycloak","variant":"staging"},"name":"staging-keycloak","namespace":"meditrack-staging"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"keycloak","variant":"staging"}},"template":{"metadata":{"labels":{"app":"keycloak","variant":"staging"}},"spec":{"containers":[{"args":["start-dev","--import-realm"],"env":[{"name":"KEYCLOAK_ADMIN","value":"admin"},{"name":"KEYCLOAK_ADMIN_PASSWORD","value":"admin"},{"name":"KC_HOSTNAME_STRICT","value":"false"},{"name":"KC_HTTP_ENABLED","value":"true"},{"name":"KC_PROXY_HEADERS","value":"xforwarded"}],"image":"quay.io/keycloak/keycloak:23.0","livenessProbe":{"httpGet":{"path":"/realms/master","port":8080},"initialDelaySeconds":60,"periodSeconds":20},"name":"keycloak","ports":[{"containerPort":8080}],"readinessProbe":{"httpGet":{"path":"/realms/master","port":8080},"initialDelaySeconds":30,"periodSeconds":10},"resources":{"limits":{"cpu":"750m","memory":"1024Mi"},"requests":{"cpu":"250m","memory":"512Mi"}},"volumeMounts":[{"mountPath":"/opt/keycloak/data/import","name":"realm-import","readOnly":true}]}],"volumes":[{"configMap":{"name":"staging-keycloak-realm-import"},"name":"realm-import"}]}}}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generation: 2
+    labels:
+      app: keycloak
+      variant: staging
+    name: staging-keycloak
+    namespace: meditrack-staging
+    resourceVersion: "166713"
+    uid: 852970a9-f88d-45c4-9ad3-554b888b40c5
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: keycloak
+        variant: staging
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        labels:
+          app: keycloak
+          variant: staging
+      spec:
+        containers:
+        - args:
+          - start-dev
+          - --import-realm
+          env:
+          - name: KEYCLOAK_ADMIN
+            value: admin
+          - name: KEYCLOAK_ADMIN_PASSWORD
+            value: admin
+          - name: KC_HOSTNAME_STRICT
+            value: "false"
+          - name: KC_HTTP_ENABLED
+            value: "true"
+          - name: KC_PROXY_HEADERS
+            value: xforwarded
+          image: quay.io/keycloak/keycloak:23.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /realms/master
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: keycloak
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /realms/master
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 750m
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /opt/keycloak/data/import
+            name: realm-import
+            readOnly: true
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: staging-keycloak-realm-import
+          name: realm-import
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-03-31T09:55:26Z"
+      lastUpdateTime: "2026-03-31T09:59:05Z"
+      message: ReplicaSet "staging-keycloak-585fb489b5" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2026-04-04T07:16:11Z"
+      lastUpdateTime: "2026-04-04T07:16:11Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    observedGeneration: 2
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-redis
+      deployment.kubernetes.io/revision: "1"
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"apps/v1","kind":"Deployment","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:apps/Deployment:meditrack-staging/staging-redis"},"labels":{"app":"redis","variant":"staging"},"name":"staging-redis","namespace":"meditrack-staging"},"spec":{"replicas":1,"selector":{"matchLabels":{"app":"redis","variant":"staging"}},"template":{"metadata":{"labels":{"app":"redis","variant":"staging"}},"spec":{"containers":[{"image":"redis:7-alpine","name":"redis","ports":[{"containerPort":6379}],"resources":{"limits":{"cpu":"200m","memory":"256Mi"},"requests":{"cpu":"100m","memory":"128Mi"}}}]}}}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generation: 2
+    labels:
+      app: redis
+      variant: staging
+    name: staging-redis
+    namespace: meditrack-staging
+    resourceVersion: "166518"
+    uid: 18d5419b-f1db-4d0a-b0af-945278821215
+  spec:
+    progressDeadlineSeconds: 600
+    replicas: 1
+    revisionHistoryLimit: 10
+    selector:
+      matchLabels:
+        app: redis
+        variant: staging
+    strategy:
+      rollingUpdate:
+        maxSurge: 25%
+        maxUnavailable: 25%
+      type: RollingUpdate
+    template:
+      metadata:
+        labels:
+          app: redis
+          variant: staging
+      spec:
+        containers:
+        - image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          name: redis
+          ports:
+          - containerPort: 6379
+            protocol: TCP
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    availableReplicas: 1
+    conditions:
+    - lastTransitionTime: "2026-03-31T09:55:26Z"
+      lastUpdateTime: "2026-03-31T09:58:13Z"
+      message: ReplicaSet "staging-redis-6d7984c9f" has successfully progressed.
+      reason: NewReplicaSetAvailable
+      status: "True"
+      type: Progressing
+    - lastTransitionTime: "2026-04-04T07:15:09Z"
+      lastUpdateTime: "2026-04-04T07:15:09Z"
+      message: Deployment has minimum availability.
+      reason: MinimumReplicasAvailable
+      status: "True"
+      type: Available
+    observedGeneration: 2
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+    updatedReplicas: 1
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-elasticsearch
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "2"
+      deployment.kubernetes.io/revision: "1"
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generation: 1
+    labels:
+      app: elasticsearch
+      pod-template-hash: 6c68cd5d84
+      variant: staging
+    name: staging-elasticsearch-6c68cd5d84
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-elasticsearch
+      uid: c9bbf7f4-cadb-4c24-b05f-3162353d0f98
+    resourceVersion: "166523"
+    uid: 5a982888-25a8-4ce9-950f-98258b7edd72
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: elasticsearch
+        pod-template-hash: 6c68cd5d84
+        variant: staging
+    template:
+      metadata:
+        labels:
+          app: elasticsearch
+          pod-template-hash: 6c68cd5d84
+          variant: staging
+      spec:
+        containers:
+        - env:
+          - name: discovery.type
+            value: single-node
+          - name: xpack.security.enabled
+            value: "false"
+          - name: ES_JAVA_OPTS
+            value: -Xms512m -Xmx512m
+          image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+          imagePullPolicy: IfNotPresent
+          name: elasticsearch
+          ports:
+          - containerPort: 9200
+            protocol: TCP
+          resources:
+            limits:
+              cpu: 500m
+              memory: 1Gi
+            requests:
+              cpu: 200m
+              memory: 512Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    availableReplicas: 1
+    fullyLabeledReplicas: 1
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "49"
+    creationTimestamp: "2026-04-02T05:46:43Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: 575785c569
+      variant: staging
+    name: staging-fastapi-575785c569
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "95019"
+    uid: f334f415-7e3b-4e28-919f-5c8794ecb88b
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 575785c569
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-01T10:26:52+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 575785c569
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-9bbacb4
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "54"
+    creationTimestamp: "2026-04-03T17:20:08Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: 59cbb8d6f7
+      variant: staging
+    name: staging-fastapi-59cbb8d6f7
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "160037"
+    uid: d4d59f24-39b4-47a5-8ebc-26038a4ab84c
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 59cbb8d6f7
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-02T14:51:56+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 59cbb8d6f7
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-f8bd9ba
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "47"
+    creationTimestamp: "2026-04-02T05:13:12Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: 5cd4f65d59
+      variant: staging
+    name: staging-fastapi-5cd4f65d59
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "88228"
+    uid: 1a6f0aa7-8176-4ec6-b62f-dd2f39ecbbc2
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 5cd4f65d59
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-01T10:26:52+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 5cd4f65d59
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-42326ff
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "48"
+    creationTimestamp: "2026-04-02T05:36:38Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: 5cd754698c
+      variant: staging
+    name: staging-fastapi-5cd754698c
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "88939"
+    uid: 9f32ac2e-168c-4c30-994f-ce9635d53105
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 5cd754698c
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-01T10:26:52+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 5cd754698c
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-578f546
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "55"
+    creationTimestamp: "2026-04-04T05:33:36Z"
+    generation: 2
+    labels:
+      app: fastapi
+      pod-template-hash: 6d5cf9fb48
+      variant: staging
+    name: staging-fastapi-6d5cf9fb48
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "164544"
+    uid: b85892b9-737a-47cc-be62-4a26d062c42c
+  spec:
+    replicas: 2
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 6d5cf9fb48
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-02T14:51:56+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 6d5cf9fb48
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    fullyLabeledReplicas: 2
+    observedGeneration: 2
+    replicas: 2
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "53"
+    creationTimestamp: "2026-04-03T15:23:48Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: 6fc9df846
+      variant: staging
+    name: staging-fastapi-6fc9df846
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "142991"
+    uid: c0b5065b-27d6-40a0-91bd-f5375bef8335
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 6fc9df846
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-02T14:51:56+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 6fc9df846
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-634d217
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "45"
+    creationTimestamp: "2026-04-02T04:28:31Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: 76755dbf89
+      variant: staging
+    name: staging-fastapi-76755dbf89
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "84362"
+    uid: ea276b6d-590e-4860-8dbb-d3838d129f78
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 76755dbf89
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-01T10:26:52+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 76755dbf89
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-181ef51
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "52"
+    creationTimestamp: "2026-04-02T08:10:23Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: 869657d4f8
+      variant: staging
+    name: staging-fastapi-869657d4f8
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "135254"
+    uid: bf70f559-ecf9-4668-8631-04428c160833
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 869657d4f8
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-02T14:51:56+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 869657d4f8
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-0c81586
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "50"
+    creationTimestamp: "2026-04-02T07:51:56Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: 86dc9c4c4d
+      variant: staging
+    name: staging-fastapi-86dc9c4c4d
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "95777"
+    uid: 912ac34b-068d-4a7b-bec0-ee7ad0b8e91d
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 86dc9c4c4d
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-02T14:51:56+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 86dc9c4c4d
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-9bbacb4
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "46"
+    creationTimestamp: "2026-04-02T04:36:40Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: 999766b66
+      variant: staging
+    name: staging-fastapi-999766b66
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "86710"
+    uid: e9ae304f-b41a-48a4-8228-c867db0ecde1
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: 999766b66
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-01T10:26:52+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: 999766b66
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-668c557
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-fastapi
+      deployment.kubernetes.io/desired-replicas: "2"
+      deployment.kubernetes.io/max-replicas: "3"
+      deployment.kubernetes.io/revision: "51"
+    creationTimestamp: "2026-04-02T08:02:36Z"
+    generation: 4
+    labels:
+      app: fastapi
+      pod-template-hash: d9b768c7c
+      variant: staging
+    name: staging-fastapi-d9b768c7c
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-fastapi
+      uid: 1850c099-8b53-4ee4-87f2-873dd5980b6a
+    resourceVersion: "96352"
+    uid: 98c03089-0dff-4df7-ad83-28fcb6335b13
+  spec:
+    replicas: 0
+    selector:
+      matchLabels:
+        app: fastapi
+        pod-template-hash: d9b768c7c
+        variant: staging
+    template:
+      metadata:
+        annotations:
+          kubectl.kubernetes.io/restartedAt: "2026-04-02T14:51:56+07:00"
+        labels:
+          app: fastapi
+          pod-template-hash: d9b768c7c
+          variant: staging
+      spec:
+        containers:
+        - envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-c5a99c8
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: fastapi
+          ports:
+          - containerPort: 8000
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /api/v1/health
+              port: 8000
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    observedGeneration: 4
+    replicas: 0
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-keycloak
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "2"
+      deployment.kubernetes.io/revision: "1"
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generation: 1
+    labels:
+      app: keycloak
+      pod-template-hash: 585fb489b5
+      variant: staging
+    name: staging-keycloak-585fb489b5
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-keycloak
+      uid: 852970a9-f88d-45c4-9ad3-554b888b40c5
+    resourceVersion: "166712"
+    uid: 0c50d901-9c33-4498-a7f7-b9a48b3d6738
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: keycloak
+        pod-template-hash: 585fb489b5
+        variant: staging
+    template:
+      metadata:
+        labels:
+          app: keycloak
+          pod-template-hash: 585fb489b5
+          variant: staging
+      spec:
+        containers:
+        - args:
+          - start-dev
+          - --import-realm
+          env:
+          - name: KEYCLOAK_ADMIN
+            value: admin
+          - name: KEYCLOAK_ADMIN_PASSWORD
+            value: admin
+          - name: KC_HOSTNAME_STRICT
+            value: "false"
+          - name: KC_HTTP_ENABLED
+            value: "true"
+          - name: KC_PROXY_HEADERS
+            value: xforwarded
+          image: quay.io/keycloak/keycloak:23.0
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /realms/master
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            successThreshold: 1
+            timeoutSeconds: 1
+          name: keycloak
+          ports:
+          - containerPort: 8080
+            protocol: TCP
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /realms/master
+              port: 8080
+              scheme: HTTP
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          resources:
+            limits:
+              cpu: 750m
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+          volumeMounts:
+          - mountPath: /opt/keycloak/data/import
+            name: realm-import
+            readOnly: true
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+        volumes:
+        - configMap:
+            defaultMode: 420
+            name: staging-keycloak-realm-import
+          name: realm-import
+  status:
+    availableReplicas: 1
+    fullyLabeledReplicas: 1
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+- apiVersion: apps/v1
+  kind: ReplicaSet
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:apps/Deployment:meditrack-staging/staging-redis
+      deployment.kubernetes.io/desired-replicas: "1"
+      deployment.kubernetes.io/max-replicas: "2"
+      deployment.kubernetes.io/revision: "1"
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generation: 1
+    labels:
+      app: redis
+      pod-template-hash: 6d7984c9f
+      variant: staging
+    name: staging-redis-6d7984c9f
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: apps/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: Deployment
+      name: staging-redis
+      uid: 18d5419b-f1db-4d0a-b0af-945278821215
+    resourceVersion: "166515"
+    uid: 42663e52-7b1b-478c-93d8-8a23bf447f19
+  spec:
+    replicas: 1
+    selector:
+      matchLabels:
+        app: redis
+        pod-template-hash: 6d7984c9f
+        variant: staging
+    template:
+      metadata:
+        labels:
+          app: redis
+          pod-template-hash: 6d7984c9f
+          variant: staging
+      spec:
+        containers:
+        - image: redis:7-alpine
+          imagePullPolicy: IfNotPresent
+          name: redis
+          ports:
+          - containerPort: 6379
+            protocol: TCP
+          resources:
+            limits:
+              cpu: 200m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: Always
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    availableReplicas: 1
+    fullyLabeledReplicas: 1
+    observedGeneration: 1
+    readyReplicas: 1
+    replicas: 1
+    terminatingReplicas: 0
+- apiVersion: batch/v1
+  kind: CronJob
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:batch/CronJob:meditrack-staging/staging-fastapi-reindex
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"batch/v1","kind":"CronJob","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:batch/CronJob:meditrack-staging/staging-fastapi-reindex"},"labels":{"variant":"staging"},"name":"staging-fastapi-reindex","namespace":"meditrack-staging"},"spec":{"concurrencyPolicy":"Forbid","failedJobsHistoryLimit":3,"jobTemplate":{"metadata":{"labels":{"variant":"staging"}},"spec":{"backoffLimit":1,"template":{"metadata":{"labels":{"variant":"staging"}},"spec":{"containers":[{"command":["python","-m","app.services.search_indexer"],"envFrom":[{"configMapRef":{"name":"staging-fastapi-config"}},{"secretRef":{"name":"staging-fastapi-secrets"}}],"image":"ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb","imagePullPolicy":"IfNotPresent","name":"reindex","resources":{"limits":{"cpu":"500m","memory":"512Mi"},"requests":{"cpu":"100m","memory":"256Mi"}}}],"restartPolicy":"OnFailure"}}}},"schedule":"*/10 * * * *","successfulJobsHistoryLimit":1}}
+    creationTimestamp: "2026-04-01T04:17:31Z"
+    generation: 47
+    labels:
+      variant: staging
+    name: staging-fastapi-reindex
+    namespace: meditrack-staging
+    resourceVersion: "175026"
+    uid: 65fb6897-ba8c-4610-807c-ca04b0807b96
+  spec:
+    concurrencyPolicy: Forbid
+    failedJobsHistoryLimit: 3
+    jobTemplate:
+      metadata:
+        labels:
+          variant: staging
+      spec:
+        backoffLimit: 1
+        template:
+          metadata:
+            labels:
+              variant: staging
+          spec:
+            containers:
+            - command:
+              - python
+              - -m
+              - app.services.search_indexer
+              envFrom:
+              - configMapRef:
+                  name: staging-fastapi-config
+              - secretRef:
+                  name: staging-fastapi-secrets
+              image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+              imagePullPolicy: IfNotPresent
+              name: reindex
+              resources:
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+              terminationMessagePath: /dev/termination-log
+              terminationMessagePolicy: File
+            dnsPolicy: ClusterFirst
+            restartPolicy: OnFailure
+            schedulerName: default-scheduler
+            securityContext: {}
+            terminationGracePeriodSeconds: 30
+    schedule: '*/10 * * * *'
+    successfulJobsHistoryLimit: 1
+    suspend: false
+  status:
+    lastScheduleTime: "2026-04-04T08:30:00Z"
+    lastSuccessfulTime: "2026-04-04T06:41:52Z"
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    annotations:
+      batch.kubernetes.io/cronjob-scheduled-timestamp: "2026-04-04T06:40:00Z"
+    creationTimestamp: "2026-04-04T06:40:00Z"
+    generation: 1
+    labels:
+      variant: staging
+    name: staging-fastapi-reindex-29588080
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: batch/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: CronJob
+      name: staging-fastapi-reindex
+      uid: 65fb6897-ba8c-4610-807c-ca04b0807b96
+    resourceVersion: "163945"
+    uid: d09ca8a6-849a-40eb-878d-999775d093ee
+  spec:
+    backoffLimit: 1
+    completionMode: NonIndexed
+    completions: 1
+    manualSelector: false
+    parallelism: 1
+    podReplacementPolicy: TerminatingOrFailed
+    selector:
+      matchLabels:
+        batch.kubernetes.io/controller-uid: d09ca8a6-849a-40eb-878d-999775d093ee
+    suspend: false
+    template:
+      metadata:
+        labels:
+          batch.kubernetes.io/controller-uid: d09ca8a6-849a-40eb-878d-999775d093ee
+          batch.kubernetes.io/job-name: staging-fastapi-reindex-29588080
+          controller-uid: d09ca8a6-849a-40eb-878d-999775d093ee
+          job-name: staging-fastapi-reindex-29588080
+          variant: staging
+      spec:
+        containers:
+        - command:
+          - python
+          - -m
+          - app.services.search_indexer
+          envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+          imagePullPolicy: IfNotPresent
+          name: reindex
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: OnFailure
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    completionTime: "2026-04-04T06:41:52Z"
+    conditions:
+    - lastProbeTime: "2026-04-04T06:41:52Z"
+      lastTransitionTime: "2026-04-04T06:41:52Z"
+      message: Reached expected number of succeeded pods
+      reason: CompletionsReached
+      status: "True"
+      type: SuccessCriteriaMet
+    - lastProbeTime: "2026-04-04T06:41:52Z"
+      lastTransitionTime: "2026-04-04T06:41:52Z"
+      message: Reached expected number of succeeded pods
+      reason: CompletionsReached
+      status: "True"
+      type: Complete
+    ready: 0
+    startTime: "2026-04-04T06:40:00Z"
+    succeeded: 1
+    terminating: 0
+    uncountedTerminatedPods: {}
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    annotations:
+      batch.kubernetes.io/cronjob-scheduled-timestamp: "2026-04-04T08:10:00Z"
+    creationTimestamp: "2026-04-04T08:10:00Z"
+    generation: 1
+    labels:
+      variant: staging
+    name: staging-fastapi-reindex-29588170
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: batch/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: CronJob
+      name: staging-fastapi-reindex
+      uid: 65fb6897-ba8c-4610-807c-ca04b0807b96
+    resourceVersion: "173193"
+    uid: a3a5ded0-5528-4002-9088-7a0bddfcafcc
+  spec:
+    backoffLimit: 1
+    completionMode: NonIndexed
+    completions: 1
+    manualSelector: false
+    parallelism: 1
+    podReplacementPolicy: TerminatingOrFailed
+    selector:
+      matchLabels:
+        batch.kubernetes.io/controller-uid: a3a5ded0-5528-4002-9088-7a0bddfcafcc
+    suspend: false
+    template:
+      metadata:
+        labels:
+          batch.kubernetes.io/controller-uid: a3a5ded0-5528-4002-9088-7a0bddfcafcc
+          batch.kubernetes.io/job-name: staging-fastapi-reindex-29588170
+          controller-uid: a3a5ded0-5528-4002-9088-7a0bddfcafcc
+          job-name: staging-fastapi-reindex-29588170
+          variant: staging
+      spec:
+        containers:
+        - command:
+          - python
+          - -m
+          - app.services.search_indexer
+          envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+          imagePullPolicy: IfNotPresent
+          name: reindex
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: OnFailure
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    conditions:
+    - lastProbeTime: "2026-04-04T08:10:25Z"
+      lastTransitionTime: "2026-04-04T08:10:25Z"
+      message: Job has reached the specified backoff limit
+      reason: BackoffLimitExceeded
+      status: "True"
+      type: FailureTarget
+    - lastProbeTime: "2026-04-04T08:10:41Z"
+      lastTransitionTime: "2026-04-04T08:10:41Z"
+      message: Job has reached the specified backoff limit
+      reason: BackoffLimitExceeded
+      status: "True"
+      type: Failed
+    failed: 1
+    ready: 0
+    startTime: "2026-04-04T08:10:00Z"
+    terminating: 0
+    uncountedTerminatedPods: {}
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    annotations:
+      batch.kubernetes.io/cronjob-scheduled-timestamp: "2026-04-04T08:20:00Z"
+    creationTimestamp: "2026-04-04T08:20:00Z"
+    generation: 1
+    labels:
+      variant: staging
+    name: staging-fastapi-reindex-29588180
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: batch/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: CronJob
+      name: staging-fastapi-reindex
+      uid: 65fb6897-ba8c-4610-807c-ca04b0807b96
+    resourceVersion: "174175"
+    uid: 8416f6bf-846d-432b-9086-4adce168b5e6
+  spec:
+    backoffLimit: 1
+    completionMode: NonIndexed
+    completions: 1
+    manualSelector: false
+    parallelism: 1
+    podReplacementPolicy: TerminatingOrFailed
+    selector:
+      matchLabels:
+        batch.kubernetes.io/controller-uid: 8416f6bf-846d-432b-9086-4adce168b5e6
+    suspend: false
+    template:
+      metadata:
+        labels:
+          batch.kubernetes.io/controller-uid: 8416f6bf-846d-432b-9086-4adce168b5e6
+          batch.kubernetes.io/job-name: staging-fastapi-reindex-29588180
+          controller-uid: 8416f6bf-846d-432b-9086-4adce168b5e6
+          job-name: staging-fastapi-reindex-29588180
+          variant: staging
+      spec:
+        containers:
+        - command:
+          - python
+          - -m
+          - app.services.search_indexer
+          envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+          imagePullPolicy: IfNotPresent
+          name: reindex
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: OnFailure
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    conditions:
+    - lastProbeTime: "2026-04-04T08:20:15Z"
+      lastTransitionTime: "2026-04-04T08:20:15Z"
+      message: Job has reached the specified backoff limit
+      reason: BackoffLimitExceeded
+      status: "True"
+      type: FailureTarget
+    - lastProbeTime: "2026-04-04T08:20:30Z"
+      lastTransitionTime: "2026-04-04T08:20:30Z"
+      message: Job has reached the specified backoff limit
+      reason: BackoffLimitExceeded
+      status: "True"
+      type: Failed
+    failed: 1
+    ready: 0
+    startTime: "2026-04-04T08:20:00Z"
+    terminating: 0
+    uncountedTerminatedPods: {}
+- apiVersion: batch/v1
+  kind: Job
+  metadata:
+    annotations:
+      batch.kubernetes.io/cronjob-scheduled-timestamp: "2026-04-04T08:30:00Z"
+    creationTimestamp: "2026-04-04T08:30:00Z"
+    generation: 1
+    labels:
+      variant: staging
+    name: staging-fastapi-reindex-29588190
+    namespace: meditrack-staging
+    ownerReferences:
+    - apiVersion: batch/v1
+      blockOwnerDeletion: true
+      controller: true
+      kind: CronJob
+      name: staging-fastapi-reindex
+      uid: 65fb6897-ba8c-4610-807c-ca04b0807b96
+    resourceVersion: "175022"
+    uid: b1eee3c8-0ebe-4089-910f-876675570fbb
+  spec:
+    backoffLimit: 1
+    completionMode: NonIndexed
+    completions: 1
+    manualSelector: false
+    parallelism: 1
+    podReplacementPolicy: TerminatingOrFailed
+    selector:
+      matchLabels:
+        batch.kubernetes.io/controller-uid: b1eee3c8-0ebe-4089-910f-876675570fbb
+    suspend: false
+    template:
+      metadata:
+        labels:
+          batch.kubernetes.io/controller-uid: b1eee3c8-0ebe-4089-910f-876675570fbb
+          batch.kubernetes.io/job-name: staging-fastapi-reindex-29588190
+          controller-uid: b1eee3c8-0ebe-4089-910f-876675570fbb
+          job-name: staging-fastapi-reindex-29588190
+          variant: staging
+      spec:
+        containers:
+        - command:
+          - python
+          - -m
+          - app.services.search_indexer
+          envFrom:
+          - configMapRef:
+              name: staging-fastapi-config
+          - secretRef:
+              name: staging-fastapi-secrets
+          image: ghcr.io/aryasutabaswara/meditrack-fastapi:staging-a225cdb
+          imagePullPolicy: IfNotPresent
+          name: reindex
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          terminationMessagePath: /dev/termination-log
+          terminationMessagePolicy: File
+        dnsPolicy: ClusterFirst
+        restartPolicy: OnFailure
+        schedulerName: default-scheduler
+        securityContext: {}
+        terminationGracePeriodSeconds: 30
+  status:
+    conditions:
+    - lastProbeTime: "2026-04-04T08:30:06Z"
+      lastTransitionTime: "2026-04-04T08:30:06Z"
+      message: Job has reached the specified backoff limit
+      reason: BackoffLimitExceeded
+      status: "True"
+      type: FailureTarget
+    - lastProbeTime: "2026-04-04T08:30:07Z"
+      lastTransitionTime: "2026-04-04T08:30:07Z"
+      message: Job has reached the specified backoff limit
+      reason: BackoffLimitExceeded
+      status: "True"
+      type: Failed
+    failed: 1
+    ready: 0
+    startTime: "2026-04-04T08:30:00Z"
+    terminating: 0
+    uncountedTerminatedPods: {}
+- apiVersion: v1
+  data:
+    ca.crt: |
+      -----BEGIN CERTIFICATE-----
+      MIIDBjCCAe6gAwIBAgIBATANBgkqhkiG9w0BAQsFADAVMRMwEQYDVQQDEwptaW5p
+      a3ViZUNBMB4XDTI2MDIyNjA4MzcxNloXDTM2MDIyNTA4MzcxNlowFTETMBEGA1UE
+      AxMKbWluaWt1YmVDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMXT
+      xkFGHNHnMLX7cG6gfwZTlOE8EB3ZIYWto4hHL7ZmRjqBTp74fiJakrH6m3jKYxyh
+      z0gCDCzHgDHudcNfziH+bRc2jS7NX8GXI18fHtXa96PKhaP/1bfu9ojsyz5/97KL
+      phobl4DepneCnwNgwD0XxgQUhfYEG69FNrnf2EgG9Felj85zYOqLebxKcBQqZt6m
+      2h2kIAJLAIAsE95xqWvD9sYxYTp+5rm41clRgjXpQ9F0rjmCMgGwUBJGA2TXmy4q
+      IiaZu9cjO5aKxix6wBE75UCXNaZ6QHJNDt+RyCE31MjGBVjhmxYQaQe6uFEeilKn
+      bWwpKYFREY24Fo5NVisCAwEAAaNhMF8wDgYDVR0PAQH/BAQDAgKkMB0GA1UdJQQW
+      MBQGCCsGAQUFBwMCBggrBgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQW
+      BBQwIu/1rcRJGecb4A6hCcQQ0+TWqzANBgkqhkiG9w0BAQsFAAOCAQEAIYw3vw3H
+      6sVauuans1n9eCfg3AbFPOGQaEkPagtTIsHv2TsHX2T1n2XSlPaiSvo6LFFB/KVp
+      LS2qkyX5HRU7/CDIkw4L38FQ8YuduesLEgYzSM+cBlnq1lthlpfD1VUq3u8K509M
+      JRLr7IQvfguVsDCCFcZ8irJxbxKIte6CnkvfTP6JuAnM2PC8Vfm6xNPCmtKJfDye
+      BuA5xLQb1pGBvmx0+SAmsmRWge3PVyB8XwO19K9zGiRsfHhB1Rl+Eho6vGcU4gmj
+      pRLP70q0J02ujSdZixQo/nleVf9eKB7KGKyZJfKSVRKWGBfm3z+sLOgcMKj09m+9
+      kEynmtPFXlZWsQ==
+      -----END CERTIFICATE-----
+  kind: ConfigMap
+  metadata:
+    annotations:
+      kubernetes.io/description: Contains a CA bundle that can be used to verify the
+        kube-apiserver when using internal endpoints such as the internal service
+        IP or kubernetes.default.svc. No other usage is guaranteed across distributions
+        of Kubernetes clusters.
+    creationTimestamp: "2026-03-31T09:52:37Z"
+    name: kube-root-ca.crt
+    namespace: meditrack-staging
+    resourceVersion: "1903"
+    uid: 821515c2-17fd-43bf-bca1-fb310c3d3903
+- apiVersion: v1
+  data:
+    APP_DEBUG: "false"
+    APP_ENV: staging
+    APP_HOST: 0.0.0.0
+    APP_PORT: "8000"
+    CORS_ORIGINS: http://meditrack.staging.local
+    ELASTICSEARCH_INDEX_DRUGS: meditrack_drugs
+    ELASTICSEARCH_URL: http://staging-elasticsearch:9200
+    KEYCLOAK_CLIENT_ID: meditrack-backend
+    KEYCLOAK_JWKS_URL: http://staging-keycloak:8080/realms/meditrack-staging/protocol/openid-connect/certs
+    KEYCLOAK_REALM: meditrack-staging
+    KEYCLOAK_URL: http://staging-keycloak:8080
+    OPENAI_PROVIDER: mock
+    REDIS_TTL_DEFAULT: "300"
+    REDIS_TTL_DRUG_LIST: "3600"
+    REDIS_URL: redis://staging-redis:6379/0
+    STORAGE_BUCKET_PRESCRIPTIONS: prescription-files
+    STORAGE_SIGNED_URL_EXPIRY: "3600"
+  kind: ConfigMap
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:/ConfigMap:meditrack-staging/staging-fastapi-config
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"APP_DEBUG":"false","APP_ENV":"staging","APP_HOST":"0.0.0.0","APP_PORT":"8000","CORS_ORIGINS":"http://meditrack.staging.local","ELASTICSEARCH_INDEX_DRUGS":"meditrack_drugs","ELASTICSEARCH_URL":"http://staging-elasticsearch:9200","KEYCLOAK_CLIENT_ID":"meditrack-backend","KEYCLOAK_JWKS_URL":"http://staging-keycloak:8080/realms/meditrack-staging/protocol/openid-connect/certs","KEYCLOAK_REALM":"meditrack-staging","KEYCLOAK_URL":"http://staging-keycloak:8080","OPENAI_PROVIDER":"mock","REDIS_TTL_DEFAULT":"300","REDIS_TTL_DRUG_LIST":"3600","REDIS_URL":"redis://staging-redis:6379/0","STORAGE_BUCKET_PRESCRIPTIONS":"prescription-files","STORAGE_SIGNED_URL_EXPIRY":"3600"},"kind":"ConfigMap","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:/ConfigMap:meditrack-staging/staging-fastapi-config"},"labels":{"variant":"staging"},"name":"staging-fastapi-config","namespace":"meditrack-staging"}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    labels:
+      variant: staging
+    name: staging-fastapi-config
+    namespace: meditrack-staging
+    resourceVersion: "23435"
+    uid: 8d94d7d5-7ea3-454a-a283-9bd9b5469c93
+- apiVersion: v1
+  data:
+    meditrack-staging-realm.json: |
+      {
+        "realm": "meditrack-staging",
+        "enabled": true,
+        "displayName": "MediTrack Staging",
+        "sslRequired": "external",
+        "registrationAllowed": false,
+        "loginWithEmailAllowed": true,
+        "duplicateEmailsAllowed": false,
+        "resetPasswordAllowed": true,
+        "accessTokenLifespan": 300,
+        "refreshTokenMaxReuse": 0,
+        "ssoSessionIdleTimeout": 1800,
+        "ssoSessionMaxLifespan": 36000,
+        "roles": {
+          "realm": [
+            { "name": "admin", "description": "Full system access" },
+            {
+              "name": "doctor",
+              "description": "Create prescriptions, view patients"
+            },
+            {
+              "name": "pharmacist",
+              "description": "Process dispensations, manage stock"
+            },
+            { "name": "patient", "description": "View own prescriptions only" }
+          ]
+        },
+        "clients": [
+          {
+            "clientId": "meditrack-backend",
+            "name": "MediTrack Backend Staging",
+            "enabled": true,
+            "clientAuthenticatorType": "client-secret",
+            "secret": "replace-with-staging-client-secret",
+            "bearerOnly": false,
+            "publicClient": false,
+            "protocol": "openid-connect",
+            "directAccessGrantsEnabled": true,
+            "serviceAccountsEnabled": true,
+            "standardFlowEnabled": false,
+            "implicitFlowEnabled": false,
+            "fullScopeAllowed": true,
+            "redirectUris": [
+              "http://meditrack.staging.local/*",
+              "http://localhost:8000/*"
+            ],
+            "webOrigins": ["http://meditrack.staging.local", "http://localhost:8000"],
+            "protocolMappers": [
+              {
+                "name": "realm roles",
+                "protocol": "openid-connect",
+                "protocolMapper": "oidc-usermodel-realm-role-mapper",
+                "consentRequired": false,
+                "config": {
+                  "multivalued": "true",
+                  "userinfo.token.claim": "true",
+                  "id.token.claim": "true",
+                  "access.token.claim": "true",
+                  "claim.name": "realm_access.roles",
+                  "jsonType.label": "String"
+                }
+              }
+            ]
+          }
+        ],
+        "users": [
+          {
+            "username": "admin_stage",
+            "email": "admin@meditrack.staging",
+            "enabled": true,
+            "emailVerified": true,
+            "credentials": [
+              {
+                "type": "password",
+                "value": "replace-with-staging-admin-password",
+                "temporary": false
+              }
+            ],
+            "realmRoles": ["admin"]
+          },
+          {
+            "username": "doctor_stage",
+            "email": "doctor@meditrack.staging",
+            "enabled": true,
+            "emailVerified": true,
+            "credentials": [
+              {
+                "type": "password",
+                "value": "replace-with-staging-doctor-password",
+                "temporary": false
+              }
+            ],
+            "realmRoles": ["doctor"]
+          },
+          {
+            "username": "pharmacist_stage",
+            "email": "pharmacist@meditrack.staging",
+            "enabled": true,
+            "emailVerified": true,
+            "credentials": [
+              {
+                "type": "password",
+                "value": "replace-with-staging-pharmacist-password",
+                "temporary": false
+              }
+            ],
+            "realmRoles": ["pharmacist"]
+          },
+          {
+            "username": "patient_stage",
+            "email": "patient@meditrack.staging",
+            "enabled": true,
+            "emailVerified": true,
+            "credentials": [
+              {
+                "type": "password",
+                "value": "replace-with-staging-patient-password",
+                "temporary": false
+              }
+            ],
+            "realmRoles": ["patient"]
+          }
+        ]
+      }
+  kind: ConfigMap
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:/ConfigMap:meditrack-staging/staging-keycloak-realm-import
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"meditrack-staging-realm.json":"{\n  \"realm\": \"meditrack-staging\",\n  \"enabled\": true,\n  \"displayName\": \"MediTrack Staging\",\n  \"sslRequired\": \"external\",\n  \"registrationAllowed\": false,\n  \"loginWithEmailAllowed\": true,\n  \"duplicateEmailsAllowed\": false,\n  \"resetPasswordAllowed\": true,\n  \"accessTokenLifespan\": 300,\n  \"refreshTokenMaxReuse\": 0,\n  \"ssoSessionIdleTimeout\": 1800,\n  \"ssoSessionMaxLifespan\": 36000,\n  \"roles\": {\n    \"realm\": [\n      { \"name\": \"admin\", \"description\": \"Full system access\" },\n      {\n        \"name\": \"doctor\",\n        \"description\": \"Create prescriptions, view patients\"\n      },\n      {\n        \"name\": \"pharmacist\",\n        \"description\": \"Process dispensations, manage stock\"\n      },\n      { \"name\": \"patient\", \"description\": \"View own prescriptions only\" }\n    ]\n  },\n  \"clients\": [\n    {\n      \"clientId\": \"meditrack-backend\",\n      \"name\": \"MediTrack Backend Staging\",\n      \"enabled\": true,\n      \"clientAuthenticatorType\": \"client-secret\",\n      \"secret\": \"replace-with-staging-client-secret\",\n      \"bearerOnly\": false,\n      \"publicClient\": false,\n      \"protocol\": \"openid-connect\",\n      \"directAccessGrantsEnabled\": true,\n      \"serviceAccountsEnabled\": true,\n      \"standardFlowEnabled\": false,\n      \"implicitFlowEnabled\": false,\n      \"fullScopeAllowed\": true,\n      \"redirectUris\": [\n        \"http://meditrack.staging.local/*\",\n        \"http://localhost:8000/*\"\n      ],\n      \"webOrigins\": [\"http://meditrack.staging.local\", \"http://localhost:8000\"],\n      \"protocolMappers\": [\n        {\n          \"name\": \"realm roles\",\n          \"protocol\": \"openid-connect\",\n          \"protocolMapper\": \"oidc-usermodel-realm-role-mapper\",\n          \"consentRequired\": false,\n          \"config\": {\n            \"multivalued\": \"true\",\n            \"userinfo.token.claim\": \"true\",\n            \"id.token.claim\": \"true\",\n            \"access.token.claim\": \"true\",\n            \"claim.name\": \"realm_access.roles\",\n            \"jsonType.label\": \"String\"\n          }\n        }\n      ]\n    }\n  ],\n  \"users\": [\n    {\n      \"username\": \"admin_stage\",\n      \"email\": \"admin@meditrack.staging\",\n      \"enabled\": true,\n      \"emailVerified\": true,\n      \"credentials\": [\n        {\n          \"type\": \"password\",\n          \"value\": \"replace-with-staging-admin-password\",\n          \"temporary\": false\n        }\n      ],\n      \"realmRoles\": [\"admin\"]\n    },\n    {\n      \"username\": \"doctor_stage\",\n      \"email\": \"doctor@meditrack.staging\",\n      \"enabled\": true,\n      \"emailVerified\": true,\n      \"credentials\": [\n        {\n          \"type\": \"password\",\n          \"value\": \"replace-with-staging-doctor-password\",\n          \"temporary\": false\n        }\n      ],\n      \"realmRoles\": [\"doctor\"]\n    },\n    {\n      \"username\": \"pharmacist_stage\",\n      \"email\": \"pharmacist@meditrack.staging\",\n      \"enabled\": true,\n      \"emailVerified\": true,\n      \"credentials\": [\n        {\n          \"type\": \"password\",\n          \"value\": \"replace-with-staging-pharmacist-password\",\n          \"temporary\": false\n        }\n      ],\n      \"realmRoles\": [\"pharmacist\"]\n    },\n    {\n      \"username\": \"patient_stage\",\n      \"email\": \"patient@meditrack.staging\",\n      \"enabled\": true,\n      \"emailVerified\": true,\n      \"credentials\": [\n        {\n          \"type\": \"password\",\n          \"value\": \"replace-with-staging-patient-password\",\n          \"temporary\": false\n        }\n      ],\n      \"realmRoles\": [\"patient\"]\n    }\n  ]\n}\n"},"kind":"ConfigMap","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:/ConfigMap:meditrack-staging/staging-keycloak-realm-import"},"labels":{"variant":"staging"},"name":"staging-keycloak-realm-import","namespace":"meditrack-staging"}}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    labels:
+      variant: staging
+    name: staging-keycloak-realm-import
+    namespace: meditrack-staging
+    resourceVersion: "86585"
+    uid: 54a8cf6b-dbfb-4474-b533-253b27a0af87
+- apiVersion: v1
+  data:
+    APP_SECRET_KEY: cmVwbGFjZV93aXRoX3JhbmRvbV9zZWNyZXQ=
+    DATABASE_URL: cG9zdGdyZXNxbCthc3luY3BnOi8vcG9zdGdyZXMuZ3BieHd5ZHZleGljdGJqd3JqZmc6bWVkaXRhbXBhZmxyQGF3cy0xLWFwLXNvdXRoLTEucG9vbGVyLnN1cGFiYXNlLmNvbTo2NTQzL3Bvc3RncmVzP3NzbD1yZXF1aXJl
+    ELASTICSEARCH_PASSWORD: ""
+    ELASTICSEARCH_USERNAME: ""
+    GEMINI_API_KEY: ""
+    KEYCLOAK_CLIENT_SECRET: cmVwbGFjZS13aXRoLXN0YWdpbmctY2xpZW50LXNlY3JldA==
+    OPENAI_API_KEY: ""
+    SUPABASE_ANON_KEY: ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKemRYQmhZbUZ6WlNJc0luSmxaaUk2SW1kd1luaDNlV1IyWlhocFkzUmlhbmR5YW1abklpd2ljbTlzWlNJNkltRnViMjRpTENKcFlYUWlPakUzTnpRNU16VTJOVFVzSW1WNGNDSTZNakE1TURVeE1UWTFOWDAuRGhjVWNWcDh1SGRkT3dKakRBVmNhUDZSbjV1RlJabGVzZTR1b1NhQ2w2RQ==
+    SUPABASE_SERVICE_ROLE_KEY: ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKemRYQmhZbUZ6WlNJc0luSmxaaUk2SW1kd1luaDNlV1IyWlhocFkzUmlhbmR5YW1abklpd2ljbTlzWlNJNkluTmxjblpwWTJWZmNtOXNaU0lzSW1saGRDSTZNVGMzTkRrek5UWTFOU3dpWlhod0lqb3lNRGt3TlRFeE5qVTFmUS5aa2VHVmdwN1hHVFNiQmhTbld3amVuT3h2bmJsTXNQcWRQRzcxVjQ0QTZz
+    SUPABASE_URL: aHR0cHM6Ly9ncGJ4d3lkdmV4aWN0Ymp3cmpmZy5zdXBhYmFzZS5jbw==
+  kind: Secret
+  metadata:
+    annotations:
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"v1","data":{"APP_SECRET_KEY":"cmVwbGFjZV93aXRoX3JhbmRvbV9zZWNyZXQ=","DATABASE_URL":"cG9zdGdyZXNxbCthc3luY3BnOi8vcG9zdGdyZXMuZ3BieHd5ZHZleGljdGJqd3JqZmc6bW\nVkaXRhbXBhZmxyQGF3cy0xLWFwLXNvdXRoLTEucG9vbGVyLnN1cGFiYXNlLmNvbTo2NTQz\nL3Bvc3RncmVzP3NzbD1yZXF1aXJl\n","ELASTICSEARCH_PASSWORD":"","ELASTICSEARCH_USERNAME":"","GEMINI_API_KEY":"","KEYCLOAK_CLIENT_SECRET":"cmVwbGFjZS13aXRoLXN0YWdpbmctY2xpZW50LXNlY3JldA==","OPENAI_API_KEY":"","SUPABASE_ANON_KEY":"ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKemRYQm\nhZbUZ6WlNJc0luSmxaaUk2SW1kd1luaDNlV1IyWlhocFkzUmlhbmR5YW1abklpd2ljbTlz\nWlNJNkltRnViMjRpTENKcFlYUWlPakUzTnpRNU16VTJOVFVzSW1WNGNDSTZNakE1TURVeE\n1UWTFOWDAuRGhjVWNWcDh1SGRkT3dKakRBVmNhUDZSbjV1RlJabGVzZTR1b1NhQ2w2RQ==\n","SUPABASE_SERVICE_ROLE_KEY":"ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5LmV5SnBjM01pT2lKemRYQm\nhZbUZ6WlNJc0luSmxaaUk2SW1kd1luaDNlV1IyWlhocFkzUmlhbmR5YW1abklpd2ljbTlz\nWlNJNkluTmxjblpwWTJWZmNtOXNaU0lzSW1saGRDSTZNVGMzTkRrek5UWTFOU3dpWlhod0\nlqb3lNRGt3TlRFeE5qVTFmUS5aa2VHVmdwN1hHVFNiQmhTbld3amVuT3h2bmJsTXNQcWRQ\nRzcxVjQ0QTZz\n","SUPABASE_URL":"aHR0cHM6Ly9ncGJ4d3lkdmV4aWN0Ymp3cmpmZy5zdXBhYmFzZS5jbw=="},"kind":"Secret","metadata":{"annotations":{},"labels":{"variant":"staging"},"name":"staging-fastapi-secrets","namespace":"meditrack-staging"},"type":"Opaque"}
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    labels:
+      variant: staging
+    name: staging-fastapi-secrets
+    namespace: meditrack-staging
+    resourceVersion: "9318"
+    uid: 06e0436e-e86c-4f12-b969-e4e929b98cb9
+  type: Opaque
+- apiVersion: networking.k8s.io/v1
+  kind: Ingress
+  metadata:
+    annotations:
+      argocd.argoproj.io/tracking-id: meditrack-staging:networking.k8s.io/Ingress:meditrack-staging/staging-meditrack-staging-ingress
+      kubectl.kubernetes.io/last-applied-configuration: |
+        {"apiVersion":"networking.k8s.io/v1","kind":"Ingress","metadata":{"annotations":{"argocd.argoproj.io/tracking-id":"meditrack-staging:networking.k8s.io/Ingress:meditrack-staging/staging-meditrack-staging-ingress","kubernetes.io/ingress.class":"nginx"},"labels":{"variant":"staging"},"name":"staging-meditrack-staging-ingress","namespace":"meditrack-staging"},"spec":{"rules":[{"host":"meditrack.staging.local","http":{"paths":[{"backend":{"service":{"name":"staging-fastapi","port":{"number":80}}},"path":"/","pathType":"Prefix"}]}}]}}
+      kubernetes.io/ingress.class: nginx
+    creationTimestamp: "2026-03-31T09:55:26Z"
+    generation: 1
+    labels:
+      variant: staging
+    name: staging-meditrack-staging-ingress
+    namespace: meditrack-staging
+    resourceVersion: "166753"
+    uid: 4b125363-868e-4245-a420-6f7cd936be45
+  spec:
+    rules:
+    - host: meditrack.staging.local
+      http:
+        paths:
+        - backend:
+            service:
+              name: staging-fastapi
+              port:
+                number: 80
+          path: /
+          pathType: Prefix
+  status:
+    loadBalancer:
+      ingress:
+      - ip: 192.168.49.2
+kind: List
+metadata:
+  resourceVersion: ""

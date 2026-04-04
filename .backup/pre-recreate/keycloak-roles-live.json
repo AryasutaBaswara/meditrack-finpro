@@ -1,0 +1,50 @@
+[ {
+  "id" : "6a73387d-cd91-4cfa-87e8-b90c295c1a3f",
+  "name" : "doctor",
+  "description" : "Create prescriptions, view patients",
+  "composite" : false,
+  "clientRole" : false,
+  "containerId" : "fe3f0fc1-1151-4e2e-bd0f-2999bce053b5"
+}, {
+  "id" : "3b83015b-2e5d-484e-abe2-2a048c03b215",
+  "name" : "uma_authorization",
+  "description" : "${role_uma_authorization}",
+  "composite" : false,
+  "clientRole" : false,
+  "containerId" : "fe3f0fc1-1151-4e2e-bd0f-2999bce053b5"
+}, {
+  "id" : "2dc47c02-26a2-4823-9355-c1b5b4f90a94",
+  "name" : "offline_access",
+  "description" : "${role_offline-access}",
+  "composite" : false,
+  "clientRole" : false,
+  "containerId" : "fe3f0fc1-1151-4e2e-bd0f-2999bce053b5"
+}, {
+  "id" : "14a58490-5d5b-4b08-b4fc-82675eb3a4bc",
+  "name" : "admin",
+  "description" : "Full system access",
+  "composite" : false,
+  "clientRole" : false,
+  "containerId" : "fe3f0fc1-1151-4e2e-bd0f-2999bce053b5"
+}, {
+  "id" : "c36e362b-ad5f-4490-ae20-99f52728f9a2",
+  "name" : "default-roles-meditrack-staging",
+  "description" : "${role_default-roles}",
+  "composite" : true,
+  "clientRole" : false,
+  "containerId" : "fe3f0fc1-1151-4e2e-bd0f-2999bce053b5"
+}, {
+  "id" : "c98fd8db-6374-42e0-99d9-021e4ce8a7b8",
+  "name" : "patient",
+  "description" : "View own prescriptions only",
+  "composite" : false,
+  "clientRole" : false,
+  "containerId" : "fe3f0fc1-1151-4e2e-bd0f-2999bce053b5"
+}, {
+  "id" : "0030e6a5-625d-4cd4-8253-dba746cfeba6",
+  "name" : "pharmacist",
+  "description" : "Process dispensations, manage stock",
+  "composite" : false,
+  "clientRole" : false,
+  "containerId" : "fe3f0fc1-1151-4e2e-bd0f-2999bce053b5"
+} ]

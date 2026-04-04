@@ -328,7 +328,7 @@ class PrescriptionService:
             doctor_subq = (
                 select(Doctor.id)
                 .join(User, User.id == Doctor.user_id)
-                .where(User.sub == current_user.sub)
+                .where(User.keycloak_sub == current_user.sub)  # <--- GANTI DI SINI
                 .scalar_subquery()
             )
             return [Prescription.doctor_id == doctor_subq]
@@ -338,7 +338,7 @@ class PrescriptionService:
             patient_subq = (
                 select(Patient.id)
                 .join(User, User.id == Patient.user_id)
-                .where(User.sub == current_user.sub)
+                .where(User.keycloak_sub == current_user.sub)  # <--- GANTI DI SINI
                 .scalar_subquery()
             )
             return [Prescription.patient_id == patient_subq]
