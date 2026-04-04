@@ -152,8 +152,6 @@ class PrescriptionService:
             select(Prescription)
             .options(
                 selectinload(Prescription.items).selectinload(PrescriptionItem.drug),
-                selectinload(Prescription.patient),  # <--- INI OBATNYA
-                selectinload(Prescription.doctor),
             )
             .where(Prescription.deleted_at.is_(None))
         )
